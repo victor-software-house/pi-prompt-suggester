@@ -22,7 +22,7 @@ export const DEFAULT_CONFIG: AutoprompterConfig = {
 		maxRecentUserPromptChars: 400,
 		maxToolSignals: 8,
 		maxToolSignalChars: 240,
-		maxSuggestionChars: 300,
+		maxSuggestionChars: 1000,
 		prefillOnlyWhenEditorEmpty: true,
 	},
 	steering: {

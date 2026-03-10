@@ -86,6 +86,10 @@ export function buildTurnContext(params: {
 		toolSignals,
 		touchedFiles,
 		unresolvedQuestions: extractUnresolvedQuestions(assistantText),
+		abortContextNote:
+			status === "aborted"
+				? "The previous agent turn ended with stopReason=aborted. The user likely interrupted execution and wants a better next instruction."
+				: undefined,
 	};
 }
 

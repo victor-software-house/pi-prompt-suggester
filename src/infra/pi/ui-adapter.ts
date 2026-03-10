@@ -19,23 +19,29 @@ export class PiSuggestionSink implements SuggestionSink {
 		const theme = ctx.ui.theme;
 		const editorText = ctx.ui.getEditorText();
 		const trimmedEditorText = editorText.trim();
+		const isMultilineSuggestion = text.includes("\n");
 		const prefixCompatible = !editorText.includes("\n") && text.startsWith(editorText);
 		const canGhostInEditor =
 			ctx.isIdle() &&
 			!ctx.hasPendingMessages() &&
-			(this.runtime.prefillOnlyWhenEditorEmpty ? trimmedEditorText.length === 0 : trimmedEditorText.length === 0 || prefixCompatible);
+			(isMultilineSuggestion
+				? trimmedEditorText.length === 0
+				: this.runtime.prefillOnlyWhenEditorEmpty
+					? trimmedEditorText.length === 0
+					: trimmedEditorText.length === 0 || prefixCompatible);
 
-		this.runtime.setSuggestion(text);
 		ctx.ui.setStatus(
 			"autoprompter",
 			theme.fg("accent", options?.restore ? "✦ restored prompt suggestion" : "✦ prompt suggestion"),
 		);
 
 		if (canGhostInEditor) {
+			this.runtime.setSuggestion(text);
 			ctx.ui.setWidget("autoprompter", undefined);
 			return;
 		}
 
+		this.runtime.setSuggestion(undefined);
 		ctx.ui.setWidget(
 			"autoprompter",
 			[

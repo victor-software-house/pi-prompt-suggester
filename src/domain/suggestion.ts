@@ -10,6 +10,7 @@ export interface TurnContext {
 	toolSignals: string[];
 	touchedFiles: string[];
 	unresolvedQuestions: string[];
+	abortContextNote?: string;
 }
 
 export interface PromptSuggestion {

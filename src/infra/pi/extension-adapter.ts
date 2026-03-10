@@ -9,6 +9,7 @@ import type {
 	SessionSwitchEvent,
 	SessionTreeEvent,
 } from "@mariozechner/pi-coding-agent";
+import type { TurnContext } from "../../domain/suggestion.js";
 import { buildTurnContext } from "../../app/services/conversation-signals.js";
 
 export interface ExtensionWiring {
@@ -25,6 +26,45 @@ async function handleSessionEvent(
 	handler: (ctx: ExtensionContext) => Promise<void>,
 ): Promise<void> {
 	await handler(ctx);
+}
+
+function extractRecentUserPrompts(branchMessages: unknown[]): string[] {
+	return [...branchMessages]
+		.reverse()
+		.filter((message): message is { role: string; content?: unknown } =>
+			typeof message === "object" && message !== null && "role" in message && (message as { role: string }).role === "user",
+		)
+		.slice(0, 6)
+		.map((message) => {
+			if (typeof message.content === "string") return message.content;
+			if (!Array.isArray(message.content)) return "";
+			return message.content
+				.map((block) => {
+					if (block && typeof block === "object" && "type" in block && (block as { type?: string }).type === "text") {
+						return String((block as { text?: unknown }).text ?? "");
+					}
+					return "";
+				})
+				.join("\n");
+		})
+		.map((text) => text.trim())
+		.filter(Boolean);
+}
+
+function buildAbortedFallbackTurn(sourceLeafId: string, branchMessages: unknown[]): TurnContext {
+	return {
+		turnId: sourceLeafId,
+		sourceLeafId,
+		assistantText: "Operation aborted by user.",
+		status: "aborted",
+		occurredAt: new Date().toISOString(),
+		recentUserPrompts: extractRecentUserPrompts(branchMessages),
+		toolSignals: [],
+		touchedFiles: [],
+		unresolvedQuestions: [],
+		abortContextNote:
+			"The user explicitly aborted the previous agent turn. Suggest a clear next prompt that either resumes intentionally or redirects the work.",
+	};
 }
 
 export class PiExtensionAdapter {
@@ -52,14 +92,24 @@ export class PiExtensionAdapter {
 			const branchMessages = branchEntries
 				.filter((entry): entry is typeof branchEntries[number] & { type: "message" } => entry.type === "message")
 				.map((entry) => entry.message);
+			const sourceLeafId = ctx.sessionManager.getLeafId() ?? `turn-${Date.now()}`;
 			const turn = buildTurnContext({
-				turnId: ctx.sessionManager.getLeafId() ?? `turn-${Date.now()}`,
-				sourceLeafId: ctx.sessionManager.getLeafId() ?? `turn-${Date.now()}`,
+				turnId: sourceLeafId,
+				sourceLeafId,
 				messagesFromPrompt: event.messages,
 				branchMessages,
 				occurredAt: new Date().toISOString(),
 			});
-			await this.wiring.onAgentEnd(turn, ctx);
+			if (turn) {
+				await this.wiring.onAgentEnd(turn, ctx);
+				return;
+			}
+
+			// If no assistant message was emitted for this agent_end, it is typically an abort.
+			// Emit an explicit aborted context so the suggestion engine can return "continue".
+			if (event.messages.length === 0) {
+				await this.wiring.onAgentEnd(buildAbortedFallbackTurn(sourceLeafId, branchMessages), ctx);
+			}
 		});
 
 		this.pi.on("input", async (event: InputEvent, ctx) => {

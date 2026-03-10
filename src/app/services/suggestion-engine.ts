@@ -6,8 +6,14 @@ import type { ModelClient } from "../ports/model-client.js";
 import type { PromptContextBuilder } from "./prompt-context-builder.js";
 
 function normalizeSuggestion(value: string, maxChars: number): string {
-	const flattened = value.replace(/\s+/g, " ").trim();
-	return flattened.length > maxChars ? flattened.slice(0, maxChars).trim() : flattened;
+	const normalizedLineEndings = value.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+	const trimmedTrailing = normalizedLineEndings
+		.split("\n")
+		.map((line) => line.trimEnd())
+		.join("\n")
+		.replace(/\n{3,}/g, "\n\n")
+		.trim();
+	return trimmedTrailing.length > maxChars ? trimmedTrailing.slice(0, maxChars).trimEnd() : trimmedTrailing;
 }
 
 export interface SuggestionEngineDeps {
@@ -24,7 +30,7 @@ export class SuggestionEngine {
 		seed: SeedArtifact | null,
 		steering: SteeringSlice,
 	): Promise<SuggestionResult> {
-		if (this.deps.config.suggestion.fastPathContinueOnError && (turn.status === "error" || turn.status === "aborted")) {
+		if (this.deps.config.suggestion.fastPathContinueOnError && turn.status === "error") {
 			return {
 				kind: "suggestion",
 				text: "continue",

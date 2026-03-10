@@ -16,6 +16,7 @@ export interface SuggestionPromptContext {
 	toolSignals: string[];
 	touchedFiles: string[];
 	unresolvedQuestions: string[];
+	abortContextNote?: string;
 	recentAccepted: SteeringSlice["recentAccepted"];
 	recentChanged: SteeringSlice["recentChanged"];
 	noSuggestionToken: string;
@@ -37,6 +38,7 @@ export class PromptContextBuilder {
 				.map((signal) => truncate(signal, this.config.suggestion.maxToolSignalChars)),
 			touchedFiles: turn.touchedFiles.slice(0, this.config.suggestion.maxToolSignals),
 			unresolvedQuestions: turn.unresolvedQuestions.slice(0, 6),
+			abortContextNote: turn.abortContextNote ? truncate(turn.abortContextNote, 280) : undefined,
 			recentAccepted: steering.recentAccepted.slice(0, this.config.steering.maxAcceptedExamples),
 			recentChanged: steering.recentChanged.slice(0, this.config.steering.maxChangedExamples),
 			noSuggestionToken: this.config.suggestion.noSuggestionToken,

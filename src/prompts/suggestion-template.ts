@@ -43,6 +43,9 @@ ${context.latestAssistantTurn || "(empty)"}
 TurnStatus:
 ${context.turnStatus}
 
+AbortContext:
+${context.abortContextNote ?? "(none)"}
+
 RecentUserPrompts:
 ${context.recentUserPrompts.length > 0 ? context.recentUserPrompts.map((prompt) => `- ${prompt}`).join("\n") : "(none)"}
 
@@ -65,9 +68,11 @@ ${renderExamples("RecentSteeringChanged", context.recentChanged)}
 Instructions:
 - Generate one concrete, immediately actionable user prompt.
 - Preserve current trajectory unless the latest assistant output strongly suggests a pivot.
+- If AbortContext is present, treat it as a strong signal that the user intentionally interrupted the previous execution.
 - Learn from changed examples: avoid repeating rejected phrasing or direction.
 - Prefer specific next actions over generic meta-prompts.
-- Keep the prompt concise, natural, and ready to submit as a user message.
+- You may return a multi-line prompt when it improves clarity.
+- Keep the result under 1000 characters.
 - If confidence is low, output exactly ${context.noSuggestionToken}
-- Return plain text only. No bullets. No explanation. No JSON.`;
+- Return plain text only. No explanation. No JSON.`;
 }

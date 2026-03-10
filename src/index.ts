@@ -45,7 +45,13 @@ export default function autoprompter(pi: ExtensionAPI) {
 			composition.runtimeRef.bumpEpoch();
 			if (ctx.hasUI) {
 				ctx.ui.setEditorComponent((tui, theme, kb) =>
-					new GhostSuggestionEditor(tui, theme, kb, () => composition.runtimeRef.getSuggestion()),
+					new GhostSuggestionEditor(
+						tui,
+						theme,
+						kb,
+						() => composition.runtimeRef.getSuggestion(),
+						() => composition.runtimeRef.getSuggestionRevision(),
+					),
 				);
 			}
 			await composition.orchestrators.sessionStart.handle();

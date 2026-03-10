@@ -1,5 +1,5 @@
 import { CustomEditor } from "@mariozechner/pi-coding-agent";
-import { Key, matchesKey, truncateToWidth } from "@mariozechner/pi-tui";
+import { Key, matchesKey, truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
 
 const GHOST_COLOR = "\x1b[38;5;244m";
 const RESET = "\x1b[0m";
@@ -9,14 +9,22 @@ interface GhostState {
 	text: string;
 	suggestion: string;
 	suffix: string;
+	suffixLines: string[];
+	multiline: boolean;
 }
 
 export class GhostSuggestionEditor extends CustomEditor {
+	private suppressGhost = false;
+	private suppressGhostArmedByNonEmptyText = false;
+	private lastSuggestion: string | undefined;
+	private lastSuggestionRevision = -1;
+
 	public constructor(
 		tui: ConstructorParameters<typeof CustomEditor>[0],
 		theme: ConstructorParameters<typeof CustomEditor>[1],
 		keybindings: ConstructorParameters<typeof CustomEditor>[2],
 		private readonly getSuggestion: () => string | undefined,
+		private readonly getSuggestionRevision: () => number,
 	) {
 		super(tui, theme, keybindings);
 	}
@@ -24,12 +32,21 @@ export class GhostSuggestionEditor extends CustomEditor {
 	public handleInput(data: string): void {
 		const ghost = this.getGhostState();
 		// Accept ghost suggestion with Space when the editor is still empty.
-		// Tab is already used by pi for completion/navigation.
-		if (ghost && ghost.text.length === 0 && matchesKey(data, Key.space)) {
-			this.setText(ghost.suggestion);
+		// Any other key should hide ghost mode and reveal normal editor UI behavior.
+		if (ghost && ghost.text.length === 0) {
+			if (matchesKey(data, Key.space)) {
+				this.setText(ghost.suggestion);
+				return;
+			}
+			this.suppressGhost = true;
+			this.suppressGhostArmedByNonEmptyText = false;
+			super.handleInput(data);
+			this.updateGhostSuppressionLifecycle();
 			return;
 		}
+
 		super.handleInput(data);
+		this.updateGhostSuppressionLifecycle();
 	}
 
 	public render(width: number): string[] {
@@ -39,20 +56,67 @@ export class GhostSuggestionEditor extends CustomEditor {
 		if (lines.length < 3) return lines;
 
 		const contentLineIndex = 1;
-		const line = lines[contentLineIndex];
-		if (!line || !END_CURSOR.test(line)) return lines;
+		const firstContentLine = lines[contentLineIndex];
+		if (!firstContentLine) return lines;
+		const match = END_CURSOR.exec(firstContentLine);
+		if (!match) return lines;
+
+		const cursorCol = visibleWidth(firstContentLine.slice(0, match.index));
+		const firstSuffixLine = ghost.suffixLines[0] ?? "";
+		const firstLineAvailable = Math.max(0, width - (cursorCol + 1));
+		const firstLineGhost = truncateToWidth(firstSuffixLine, firstLineAvailable, "");
 
 		lines[contentLineIndex] = truncateToWidth(
-			line.replace(END_CURSOR, (match) => `${match}${GHOST_COLOR}${ghost.suffix}${RESET}`),
+			firstContentLine.replace(END_CURSOR, (cursor) => `${cursor}${GHOST_COLOR}${firstLineGhost}${RESET}`),
 			width,
 			"",
 		);
+
+		if (!ghost.multiline) return lines;
+
+		for (let index = 1; index < ghost.suffixLines.length; index += 1) {
+			const ghostLine = this.renderGhostLineAtColumn(ghost.suffixLines[index] ?? "", cursorCol, width);
+			const targetIndex = contentLineIndex + index;
+			const bottomBorderIndex = lines.length - 1;
+			if (targetIndex < bottomBorderIndex) lines[targetIndex] = ghostLine;
+			else lines.splice(bottomBorderIndex, 0, ghostLine);
+		}
+
 		return lines;
 	}
 
+	private renderGhostLineAtColumn(text: string, col: number, width: number): string {
+		const available = Math.max(0, width - col);
+		const truncated = truncateToWidth(text, available, "");
+		const used = col + visibleWidth(truncated);
+		const padding = " ".repeat(Math.max(0, width - used));
+		return truncateToWidth(`${" ".repeat(col)}${GHOST_COLOR}${truncated}${RESET}${padding}`, width, "");
+	}
+
+	private updateGhostSuppressionLifecycle(): void {
+		if (!this.suppressGhost) return;
+		const text = this.getText();
+		if (text.length > 0) {
+			this.suppressGhostArmedByNonEmptyText = true;
+			return;
+		}
+		if (this.suppressGhostArmedByNonEmptyText) {
+			this.suppressGhost = false;
+			this.suppressGhostArmedByNonEmptyText = false;
+		}
+	}
+
 	private getGhostState(): GhostState | undefined {
+		const revision = this.getSuggestionRevision();
 		const suggestion = this.getSuggestion()?.trim();
-		if (!suggestion) return undefined;
+		if (revision !== this.lastSuggestionRevision || suggestion !== this.lastSuggestion) {
+			this.lastSuggestionRevision = revision;
+			this.lastSuggestion = suggestion;
+			this.suppressGhost = false;
+			this.suppressGhostArmedByNonEmptyText = false;
+		}
+
+		if (!suggestion || this.suppressGhost) return undefined;
 		const text = this.getText();
 		const cursor = this.getCursor();
 		if (text.includes("\n")) return undefined;
@@ -60,6 +124,9 @@ export class GhostSuggestionEditor extends CustomEditor {
 		if (!suggestion.startsWith(text)) return undefined;
 		const suffix = suggestion.slice(text.length);
 		if (!suffix) return undefined;
-		return { text, suggestion, suffix };
+		const suffixLines = suffix.split("\n");
+		const multiline = suffixLines.length > 1;
+		if (multiline && text.length > 0) return undefined;
+		return { text, suggestion, suffix, suffixLines, multiline };
 	}
 }
