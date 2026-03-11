@@ -31,7 +31,7 @@ export class ConsoleLogger implements Logger {
 		private readonly level: Level = "info",
 		private readonly options: ConsoleLoggerOptions = {},
 	) {
-		this.statusKey = options.statusKey ?? "autoprompter-log";
+		this.statusKey = options.statusKey ?? "suggester-log";
 		this.mirrorToConsoleWhenNoUi = options.mirrorToConsoleWhenNoUi ?? true;
 	}
 
@@ -64,7 +64,7 @@ export class ConsoleLogger implements Logger {
 		}
 		if (LEVEL_ORDER[level] < LEVEL_ORDER[this.level]) return;
 		const payload = meta && Object.keys(meta).length > 0 ? ` ${JSON.stringify(meta)}` : "";
-		const line = truncate(`[autoprompter ${level}] ${message}${payload}`, 220);
+		const line = truncate(`[suggester ${level}] ${message}${payload}`, 220);
 		const ctx = this.options.getContext?.();
 		if (ctx?.hasUI) {
 			const theme = ctx.ui.theme;

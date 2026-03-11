@@ -25,14 +25,14 @@
 - [x] Token/cost usage line for suggester
 
 ## Phase 4: Runtime Controls
-- [x] `/autoprompter model ...` (per-role seeder/suggester overrides)
-- [x] `/autoprompter thinking ...` (per-role thinking overrides)
+- [x] `/suggester model ...` (per-role seeder/suggester overrides)
+- [x] `/suggester thinking ...` (per-role thinking overrides)
 - [x] Session/branch-persisted overrides
 
 ## Phase 5: Observability
 - [x] Persistent NDJSON event log
 - [x] Seeder exploration + suggestion pipeline event tracing
-- [x] `/autoprompter seed-trace [limit]`
+- [x] `/suggester seed-trace [limit]`
 
 ## Next
 - [ ] Replay/eval harness for offline quality tuning

@@ -1,4 +1,4 @@
-# Architecture Plan: maintainable foundation for `pi-autoprompter` (historical)
+# Architecture Plan: maintainable foundation for `pi-prompt-suggester` (historical)
 
 > Note: this planning doc is retained for context and is not fully aligned with the live implementation.
 > For current behavior, use `docs/architecture.md` and `docs/architecture-decisions.md`.
@@ -110,8 +110,8 @@ Single typed config object used everywhere.
 
 Sources (highest precedence last):
 1. built-in defaults (`src/config/schema.ts`)
-2. project file: `.pi/autoprompter/config.json`
-3. optional user file: `~/.pi/autoprompter/config.json`
+2. project file: `.pi/suggester/config.json`
+3. optional user file: `~/.pi/suggester/config.json`
 4. additional config overlays (user/project)
 
 All config is validated at startup; invalid config fails with clear messages.
@@ -246,7 +246,7 @@ Structured logs with event names:
 - `steering.recorded`
 
 Optional debug command:
-- `/autoprompter status` -> shows seed age, reseed state, recent steering summary.
+- `/suggester status` -> shows seed age, reseed state, recent steering summary.
 
 ---
 
@@ -290,11 +290,11 @@ Optional debug command:
    - capture and persist suggestion/user pairs.
 
 7. **Commands + diagnostics**
-   - `/autoprompter reseed`, `/autoprompter status`.
+   - `/suggester reseed`, `/suggester status`.
 
 ---
 
-## Config example (`.pi/autoprompter/config.json`)
+## Config example (`.pi/suggester/config.json`)
 
 ```json
 {

@@ -14,7 +14,7 @@ export async function runStaleCheckScript(): Promise<void> {
 		vcs: new GitClient(cwd),
 		cwd,
 	});
-	const seedStore = new JsonSeedStore(path.join(cwd, ".pi", "autoprompter", "seed.json"));
+	const seedStore = new JsonSeedStore(path.join(cwd, ".pi", "suggester", "seed.json"));
 	const seed = await seedStore.load();
 	const result = await checker.check(seed);
 	process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);

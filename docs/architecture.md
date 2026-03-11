@@ -2,20 +2,20 @@
 
 ## Overview
 
-`pi-autoprompter` has five runtime pieces:
+`pi-prompt-suggester` has five runtime pieces:
 
 1. **Suggestion pipeline** (runs on `agent_end`)
 2. **Agentic reseed runner** (background, non-blocking)
 3. **Steering tracker** (session/branch-aware)
 4. **UI sink** (ghost suggestion + fallback widget + usage line)
-5. **Persistent observability log** (`.pi/autoprompter/logs/events.ndjson`)
+5. **Persistent observability log** (`.pi/suggester/logs/events.ndjson`)
 
 ---
 
 ## 1) State model
 
 ### Project-global (file)
-`./.pi/autoprompter/seed.json`
+`./.pi/suggester/seed.json`
 
 Contains:
 - seed summaries (intent/objectives/constraints/principles/status)
@@ -24,7 +24,7 @@ Contains:
 - generator/prompt/config fingerprints
 
 ### Session/branch-local (pi custom entries)
-`autoprompter-state`
+`prompt-suggester-state`
 
 Contains:
 - last shown suggestion
@@ -41,7 +41,7 @@ Reseeding is queued async and never blocks interaction.
 Trigger points:
 - session lifecycle events (`session_start/tree/fork/switch`)
 - `agent_end` stale check
-- manual `/autoprompter reseed`
+- manual `/suggester reseed`
 
 Seeder implementation:
 - iterative model loop with read-only tools: `ls`, `find`, `grep`, `read`
@@ -90,7 +90,7 @@ Behavior:
 ## 5) Observability
 
 Persistent log file:
-- `.pi/autoprompter/logs/events.ndjson`
+- `.pi/suggester/logs/events.ndjson`
 
 Logged events include:
 - seeder run start/completion/exhaustion
@@ -99,16 +99,16 @@ Logged events include:
 - steering classification events
 
 Inspection:
-- `/autoprompter seed-trace [limit]`
-- `/autoprompter status` includes log path
+- `/suggester seed-trace [limit]`
+- `/suggester status` includes log path
 
 ---
 
 ## 6) Commands
 
-- `/autoprompter status`
-- `/autoprompter reseed`
-- `/autoprompter clear`
-- `/autoprompter model [show|set|clear] ...`
-- `/autoprompter thinking [show|set|clear] ...`
-- `/autoprompter seed-trace [limit]`
+- `/suggester status`
+- `/suggester reseed`
+- `/suggester clear`
+- `/suggester model [show|set|clear] ...`
+- `/suggester thinking [show|set|clear] ...`
+- `/suggester seed-trace [limit]`

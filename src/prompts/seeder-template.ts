@@ -13,7 +13,7 @@ export interface SeederPromptInput {
 }
 
 export function renderSeederSystemPrompt(): string {
-	return `You are an agentic read-only repository seeder for pi-autoprompter.
+	return `You are an agentic read-only repository seeder for pi-prompt-suggester.
 
 You can explore using one tool call per step:
 - ls {"path"?: string, "limit"?: number}

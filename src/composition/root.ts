@@ -1,6 +1,6 @@
 import path from "node:path";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import type { AutoprompterConfig } from "../config/types.js";
+import type { PromptSuggesterConfig } from "../config/types.js";
 import { FileConfigLoader } from "../config/loader.js";
 import { ConsoleLogger } from "../infra/logging/console-logger.js";
 import { NdjsonEventLog } from "../infra/logging/ndjson-event-log.js";
@@ -23,7 +23,7 @@ import { SessionStateStore } from "../infra/pi/session-state-store.js";
 import { RuntimeRef } from "../infra/pi/runtime-ref.js";
 
 export interface AppComposition {
-	config: AutoprompterConfig;
+	config: PromptSuggesterConfig;
 	runtimeRef: RuntimeRef;
 	stores: {
 		seedStore: JsonSeedStore;
@@ -41,17 +41,17 @@ export interface AppComposition {
 export async function createAppComposition(pi: ExtensionAPI, cwd: string = process.cwd()): Promise<AppComposition> {
 	const config = await new FileConfigLoader(cwd).load();
 	const runtimeRef = new RuntimeRef();
-	const eventLog = new NdjsonEventLog(path.join(cwd, ".pi", "autoprompter", "logs", "events.ndjson"));
+	const eventLog = new NdjsonEventLog(path.join(cwd, ".pi", "suggester", "logs", "events.ndjson"));
 	const logger = new ConsoleLogger(config.logging.level, {
 		getContext: () => runtimeRef.getContext(),
-		statusKey: "autoprompter-events",
+		statusKey: "suggester-events",
 		mirrorToConsoleWhenNoUi: true,
 		eventLog,
 	});
 	const taskQueue = new InMemoryTaskQueue();
 	const vcs = new GitClient(cwd);
 	const fileHash = new Sha256FileHash();
-	const seedStore = new JsonSeedStore(path.join(cwd, ".pi", "autoprompter", "seed.json"));
+	const seedStore = new JsonSeedStore(path.join(cwd, ".pi", "suggester", "seed.json"));
 	const stateStore = new SessionStateStore(pi, () => runtimeRef.getContext()?.sessionManager);
 	const modelClient = new PiModelClient(runtimeRef, logger, cwd);
 	const clock = new SystemClock();

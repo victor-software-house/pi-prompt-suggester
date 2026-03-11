@@ -33,7 +33,7 @@ export interface LoggingConfig {
 	level: "debug" | "info" | "warn" | "error";
 }
 
-export interface AutoprompterConfig {
+export interface PromptSuggesterConfig {
 	seed: SeedConfig;
 	reseed: ReseedConfig;
 	suggestion: SuggestionConfig;

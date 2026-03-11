@@ -1,11 +1,11 @@
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { AutoprompterConfig } from "./types.js";
+import type { PromptSuggesterConfig } from "./types.js";
 import { validateConfig } from "./schema.js";
 
 export interface ConfigLoader {
-	load(): Promise<AutoprompterConfig>;
+	load(): Promise<PromptSuggesterConfig>;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -39,7 +39,7 @@ async function readJsonIfExists(filePath: string): Promise<unknown | undefined> 
 	}
 }
 
-async function readRequiredConfig(filePath: string): Promise<AutoprompterConfig> {
+async function readRequiredConfig(filePath: string): Promise<PromptSuggesterConfig> {
 	let parsed: unknown;
 	try {
 		const raw = await fs.readFile(filePath, "utf8");
@@ -60,10 +60,10 @@ export class FileConfigLoader implements ConfigLoader {
 		private readonly homeDir: string = os.homedir(),
 	) {}
 
-	public async load(): Promise<AutoprompterConfig> {
-		const defaultPath = path.join(this.cwd, "config", "autoprompter.config.json");
-		const userPath = path.join(this.homeDir, ".pi", "autoprompter", "config.json");
-		const projectPath = path.join(this.cwd, ".pi", "autoprompter", "config.json");
+	public async load(): Promise<PromptSuggesterConfig> {
+		const defaultPath = path.join(this.cwd, "config", "prompt-suggester.config.json");
+		const userPath = path.join(this.homeDir, ".pi", "suggester", "config.json");
+		const projectPath = path.join(this.cwd, ".pi", "suggester", "config.json");
 
 		const [defaultConfig, userConfig, projectConfig] = await Promise.all([
 			readRequiredConfig(defaultPath),
@@ -74,7 +74,7 @@ export class FileConfigLoader implements ConfigLoader {
 
 		if (!validateConfig(merged)) {
 			throw new Error(
-				`Invalid autoprompter config. Base defaults from ${defaultPath}; overrides from ${userPath} and ${projectPath}.`,
+				`Invalid suggester config. Base defaults from ${defaultPath}; overrides from ${userPath} and ${projectPath}.`,
 			);
 		}
 		return merged;

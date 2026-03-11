@@ -334,7 +334,7 @@ export class PiModelClient implements ModelClient {
 	): Promise<{ text: string; usage?: SuggestionUsage }> {
 		const ctx = this.runtime.getContext();
 		if (!ctx?.model) {
-			throw new Error("No active model available for autoprompter");
+			throw new Error("No active model available for suggester");
 		}
 
 		const model = this.resolveModelForCall(ctx.model, settings?.modelRef, ctx.modelRegistry.getAll());
@@ -350,7 +350,7 @@ export class PiModelClient implements ModelClient {
 			{
 				systemPrompt:
 					systemPrompt ??
-					"You are the internal model used by pi-autoprompter. Follow the user prompt exactly and return only the requested format.",
+					"You are the internal model used by pi-prompt-suggester. Follow the user prompt exactly and return only the requested format.",
 				messages: [userMessage],
 			},
 			{
@@ -381,16 +381,16 @@ export class PiModelClient implements ModelClient {
 			const id = rest.join("/");
 			const exact = allModels.find((entry) => entry.provider === provider && entry.id === id);
 			if (exact) return exact;
-			throw new Error(`Configured autoprompter model not found: ${normalized}`);
+			throw new Error(`Configured suggester model not found: ${normalized}`);
 		}
 		const candidates = allModels.filter((entry) => entry.id === normalized);
 		if (candidates.length === 1) return candidates[0];
 		if (candidates.length > 1) {
 			throw new Error(
-				`Configured autoprompter model '${normalized}' is ambiguous. Use provider/id, e.g. ${candidates[0].provider}/${candidates[0].id}`,
+				`Configured suggester model '${normalized}' is ambiguous. Use provider/id, e.g. ${candidates[0].provider}/${candidates[0].id}`,
 			);
 		}
-		throw new Error(`Configured autoprompter model not found: ${normalized}`);
+		throw new Error(`Configured suggester model not found: ${normalized}`);
 	}
 
 	private async executeSeederTool(tool: SeederToolName, args: Record<string, unknown>): Promise<string> {

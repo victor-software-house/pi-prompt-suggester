@@ -1,7 +1,7 @@
 # Architecture Decisions (Current)
 
 ## 1) Seed is project-global; runtime behavior is session/branch-local
-- **Decision:** store seed in `.pi/autoprompter/seed.json`, store interaction/runtime state in `autoprompter-state` custom session entries.
+- **Decision:** store seed in `.pi/suggester/seed.json`, store interaction/runtime state in `prompt-suggester-state` custom session entries.
 - **Why:** project intent is repo-wide, while suggestions/steering/overrides are branch-specific.
 
 ## 2) Suggestion generation runs on `agent_end`
@@ -37,9 +37,9 @@
 - **Why:** quality/cost tuning differs between deep seeding and fast next-prompt suggestion.
 
 ## 10) Observability is persisted to bounded NDJSON logs
-- **Decision:** log seeder and suggestion events to `.pi/autoprompter/logs/events.ndjson` with truncation/rotation.
+- **Decision:** log seeder and suggestion events to `.pi/suggester/logs/events.ndjson` with truncation/rotation.
 - **Why:** enables post-run debugging/tuning without noisy stdout.
 
-## 11) Operational command surface remains unified under `/autoprompter`
+## 11) Operational command surface remains unified under `/suggester`
 - **Decision:** status/reseed/clear/model/thinking/seed-trace are subcommands.
 - **Why:** one discoverable command namespace keeps UX coherent.

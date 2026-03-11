@@ -1,4 +1,4 @@
-import type { AutoprompterConfig } from "../../config/types.js";
+import type { PromptSuggesterConfig } from "../../config/types.js";
 import type { SeedArtifact } from "../../domain/seed.js";
 import type { SuggestionResult, TurnContext } from "../../domain/suggestion.js";
 import type { ModelRoleSettings } from "../../domain/state.js";
@@ -18,7 +18,7 @@ function normalizeSuggestion(value: string, maxChars: number): string {
 }
 
 export interface SuggestionEngineDeps {
-	config: AutoprompterConfig;
+	config: PromptSuggesterConfig;
 	modelClient: ModelClient;
 	promptContextBuilder: PromptContextBuilder;
 }

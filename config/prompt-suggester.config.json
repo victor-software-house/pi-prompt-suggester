@@ -12,9 +12,9 @@
   "suggestion": {
     "noSuggestionToken": "[no suggestion]",
     "fastPathContinueOnError": true,
-    "maxAssistantTurnChars": 4000,
-    "maxRecentUserPrompts": 6,
-    "maxRecentUserPromptChars": 400,
+    "maxAssistantTurnChars": 100000,
+    "maxRecentUserPrompts": 20,
+    "maxRecentUserPromptChars": 1000,
     "maxToolSignals": 8,
     "maxToolSignalChars": 240,
     "maxSuggestionChars": 1000,

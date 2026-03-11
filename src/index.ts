@@ -59,7 +59,7 @@ function asString(value: unknown): string | undefined {
 
 function renderSeedTrace(events: LoggedEvent[]): string {
 	if (events.length === 0) {
-		return "Autoprompter seed trace\n- no seeder events found in persistent logs.";
+		return "Suggester seed trace\n- no seeder events found in persistent logs.";
 	}
 
 	const withRunId = events.filter((event) => typeof event.meta?.runId === "string");
@@ -79,10 +79,10 @@ function renderSeedTrace(events: LoggedEvent[]): string {
 	});
 
 	return [
-		"Autoprompter seed trace",
+		"Suggester seed trace",
 		`- events shown: ${lines.length}`,
 		latestRunId ? `- latest run: ${latestRunId}` : "- latest run: (unknown)",
-		"- log file: .pi/autoprompter/logs/events.ndjson",
+		"- log file: .pi/suggester/logs/events.ndjson",
 		...lines,
 	].join("\n");
 }
@@ -104,7 +104,7 @@ function renderStatus(
 	const suggesterThinking = state.modelSettings.suggester.thinkingLevel ?? "default(session)";
 
 	return [
-		"Autoprompter status",
+		"Suggester status",
 		`- seed: ${seed ? `present (${seed.generatedAt})` : "missing"}`,
 		`- key files: ${seed?.keyFiles.map((file) => `${file.path} [${file.category}]`).join(", ") || "(none)"}`,
 		`- last reseed reason: ${seed?.lastReseedReason ?? "(none)"}`,
@@ -112,7 +112,7 @@ function renderStatus(
 		`- models: seeder=${seederModel}, suggester=${suggesterModel}`,
 		`- thinking: seeder=${seederThinking}, suggester=${suggesterThinking}`,
 		`- prompt suggester usage: calls=${state.suggestionUsage.calls}, totalTokens=${state.suggestionUsage.totalTokens}, totalCost=$${state.suggestionUsage.costTotal.toFixed(4)}`,
-		`- logs: .pi/autoprompter/logs/events.ndjson (use /autoprompter seed-trace)`,
+		`- logs: .pi/suggester/logs/events.ndjson (use /suggester seed-trace)`,
 		`- last suggestion: ${state.lastSuggestion?.text ?? "(none)"}`,
 		`- steering history: exact=${steeringSummary.exact}, edited=${steeringSummary.edited}, changed=${steeringSummary.changed}`,
 	].join("\n");
@@ -125,7 +125,7 @@ async function handleModelCommand(args: string, ctx: ExtensionCommandContext, co
 		const activeModel = modelToRef(ctx.model);
 		const seederModel = state.modelSettings.seeder.modelRef ?? `default(${activeModel})`;
 		const suggesterModel = state.modelSettings.suggester.modelRef ?? `default(${activeModel})`;
-		ctx.ui.notify(`autoprompter models: seeder=${seederModel}, suggester=${suggesterModel}`, "info");
+		ctx.ui.notify(`suggester models: seeder=${seederModel}, suggester=${suggesterModel}`, "info");
 		return;
 	}
 
@@ -137,7 +137,7 @@ async function handleModelCommand(args: string, ctx: ExtensionCommandContext, co
 
 	const role = parseRole(tokens[0]);
 	if (!role) {
-		ctx.ui.notify("Usage: /autoprompter model [show] | [set] <seeder|suggester> <provider/model|model-id> | clear <seeder|suggester>", "error");
+		ctx.ui.notify("Usage: /suggester model [show] | [set] <seeder|suggester> <provider/model|model-id> | clear <seeder|suggester>", "error");
 		return;
 	}
 
@@ -153,13 +153,13 @@ async function handleModelCommand(args: string, ctx: ExtensionCommandContext, co
 				},
 			},
 		});
-		ctx.ui.notify(`autoprompter ${role} model override cleared`, "info");
+		ctx.ui.notify(`suggester ${role} model override cleared`, "info");
 		return;
 	}
 
 	const rawModelRef = tokens.slice(1).join(" ").trim();
 	if (!rawModelRef) {
-		ctx.ui.notify("Missing model reference. Usage: /autoprompter model <seeder|suggester> <provider/model|model-id>", "error");
+		ctx.ui.notify("Missing model reference. Usage: /suggester model <seeder|suggester> <provider/model|model-id>", "error");
 		return;
 	}
 	const resolved = resolveModelRef(ctx.modelRegistry.getAll(), rawModelRef);
@@ -178,7 +178,7 @@ async function handleModelCommand(args: string, ctx: ExtensionCommandContext, co
 			},
 		},
 	});
-	ctx.ui.notify(`autoprompter ${role} model set to ${resolved.canonicalRef}`, "info");
+	ctx.ui.notify(`suggester ${role} model set to ${resolved.canonicalRef}`, "info");
 }
 
 async function handleThinkingCommand(args: string, ctx: ExtensionCommandContext, composition: AppComposition): Promise<void> {
@@ -187,7 +187,7 @@ async function handleThinkingCommand(args: string, ctx: ExtensionCommandContext,
 		const state = await composition.stores.stateStore.load();
 		const seederThinking = state.modelSettings.seeder.thinkingLevel ?? "default(session)";
 		const suggesterThinking = state.modelSettings.suggester.thinkingLevel ?? "default(session)";
-		ctx.ui.notify(`autoprompter thinking: seeder=${seederThinking}, suggester=${suggesterThinking}`, "info");
+		ctx.ui.notify(`suggester thinking: seeder=${seederThinking}, suggester=${suggesterThinking}`, "info");
 		return;
 	}
 
@@ -200,7 +200,7 @@ async function handleThinkingCommand(args: string, ctx: ExtensionCommandContext,
 	const role = parseRole(tokens[0]);
 	if (!role) {
 		ctx.ui.notify(
-			"Usage: /autoprompter thinking [show] | [set] <seeder|suggester> <minimal|low|medium|high|xhigh> | clear <seeder|suggester>",
+			"Usage: /suggester thinking [show] | [set] <seeder|suggester> <minimal|low|medium|high|xhigh> | clear <seeder|suggester>",
 			"error",
 		);
 		return;
@@ -218,7 +218,7 @@ async function handleThinkingCommand(args: string, ctx: ExtensionCommandContext,
 				},
 			},
 		});
-		ctx.ui.notify(`autoprompter ${role} thinking override cleared`, "info");
+		ctx.ui.notify(`suggester ${role} thinking override cleared`, "info");
 		return;
 	}
 
@@ -238,7 +238,7 @@ async function handleThinkingCommand(args: string, ctx: ExtensionCommandContext,
 			},
 		},
 	});
-	ctx.ui.notify(`autoprompter ${role} thinking set to ${rawLevel}`, "info");
+	ctx.ui.notify(`suggester ${role} thinking set to ${rawLevel}`, "info");
 }
 
 async function handleSeedTraceCommand(args: string, pi: ExtensionAPI, composition: AppComposition): Promise<void> {
@@ -246,7 +246,7 @@ async function handleSeedTraceCommand(args: string, pi: ExtensionAPI, compositio
 	const events = await composition.eventLog.readRecent(limit, { messagePrefix: "seeder." });
 	pi.sendMessage(
 		{
-			customType: "autoprompter-seed-trace",
+			customType: "prompt-suggester-seed-trace",
 			content: renderSeedTrace(events),
 			display: true,
 		},
@@ -254,7 +254,7 @@ async function handleSeedTraceCommand(args: string, pi: ExtensionAPI, compositio
 	);
 }
 
-export default function autoprompter(pi: ExtensionAPI) {
+export default function suggester(pi: ExtensionAPI) {
 	let compositionPromise: Promise<AppComposition> | undefined;
 
 	async function getComposition(): Promise<AppComposition> {
@@ -311,7 +311,7 @@ export default function autoprompter(pi: ExtensionAPI) {
 				reason: "manual",
 				changedFiles: [],
 			});
-			ctx.ui.notify("autoprompter reseed queued", "info");
+			ctx.ui.notify("suggester reseed queued", "info");
 		},
 		onStatusCommand: async (ctx) => {
 			const composition = await setRuntimeContext(ctx);
@@ -321,7 +321,7 @@ export default function autoprompter(pi: ExtensionAPI) {
 			]);
 			pi.sendMessage(
 				{
-					customType: "autoprompter-status",
+					customType: "prompt-suggester-status",
 					content: renderStatus(seed, state, ctx),
 					display: true,
 				},
@@ -336,9 +336,9 @@ export default function autoprompter(pi: ExtensionAPI) {
 				lastSuggestion: undefined,
 			});
 			composition.runtimeRef.setSuggestion(undefined);
-			ctx.ui.setWidget("autoprompter", undefined, { placement: "belowEditor" });
-			ctx.ui.setStatus("autoprompter", undefined);
-			ctx.ui.notify("autoprompter suggestion cleared", "info");
+			ctx.ui.setWidget("suggester", undefined, { placement: "belowEditor" });
+			ctx.ui.setStatus("suggester", undefined);
+			ctx.ui.notify("suggester suggestion cleared", "info");
 		},
 		onModelCommand: async (args, ctx) => {
 			const composition = await setRuntimeContext(ctx);
@@ -351,7 +351,7 @@ export default function autoprompter(pi: ExtensionAPI) {
 		onSeedTraceCommand: async (args, ctx) => {
 			const composition = await setRuntimeContext(ctx);
 			await handleSeedTraceCommand(args, pi, composition);
-			ctx.ui.notify("autoprompter seed trace sent to chat", "info");
+			ctx.ui.notify("suggester seed trace sent to chat", "info");
 		},
 	});
 

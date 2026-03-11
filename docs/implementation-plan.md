@@ -1,4 +1,4 @@
-# Implementation Plan: pi-autoprompter (historical)
+# Implementation Plan: pi-prompt-suggester (historical)
 
 > Note: this document reflects an earlier planning phase and is partially outdated.
 > Current behavior is documented in `docs/architecture.md` and `docs/architecture-decisions.md`.
@@ -43,8 +43,8 @@ The core quality lever is the prompt-generator meta prompt and the context we fe
    - provides recent examples to prompt-generator model
 
 4. **State Store**
-   - `.pi/autoprompter/seed.json`
-   - `.pi/autoprompter/state.json`
+   - `.pi/suggester/seed.json`
+   - `.pi/suggester/state.json`
 
 ---
 
@@ -175,7 +175,7 @@ No JSON schema required.
 
 ## Data contracts
 
-## `.pi/autoprompter/seed.json`
+## `.pi/suggester/seed.json`
 
 ```json
 {
@@ -194,7 +194,7 @@ No JSON schema required.
 }
 ```
 
-## `.pi/autoprompter/state.json`
+## `.pi/suggester/state.json`
 
 ```json
 {
@@ -229,7 +229,7 @@ No JSON schema required.
 Run checker:
 - on `session_start`
 - on every `agent_end`
-- on `/autoprompter reseed`
+- on `/suggester reseed`
 
 Checker steps:
 1. Compare `keyFiles[].hash` against current files.
@@ -245,7 +245,7 @@ Checker steps:
 ## Phase 1 — Base wiring
 - event hooks (`session_start`, `agent_end`, user submit hook if available)
 - load/save state
-- command `/autoprompter reseed`
+- command `/suggester reseed`
 
 ## Phase 2 — Async seed manager
 - background reseed runner with lock/pending flags

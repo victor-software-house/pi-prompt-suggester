@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { AutoprompterConfig } from "../../config/types.js";
+import type { PromptSuggesterConfig } from "../../config/types.js";
 import type { FileHash } from "../ports/file-hash.js";
 import type { VcsClient } from "../ports/vcs-client.js";
 import {
@@ -13,7 +13,7 @@ import { computeConfigFingerprint } from "./seed-metadata.js";
 import { matchesAnyGlob } from "./path-globs.js";
 
 export interface StalenessCheckerDeps {
-	config: AutoprompterConfig;
+	config: PromptSuggesterConfig;
 	fileHash: FileHash;
 	vcs: VcsClient;
 	cwd?: string;

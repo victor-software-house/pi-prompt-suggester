@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
-import type { AutoprompterConfig } from "../../config/types.js";
+import type { PromptSuggesterConfig } from "../../config/types.js";
 import { CURRENT_GENERATOR_VERSION, SEEDER_PROMPT_VERSION, SUGGESTION_PROMPT_VERSION } from "../../domain/seed.js";
 
-export function computeConfigFingerprint(config: AutoprompterConfig): string {
+export function computeConfigFingerprint(config: PromptSuggesterConfig): string {
 	const hash = createHash("sha256");
 	hash.update(
 		JSON.stringify({

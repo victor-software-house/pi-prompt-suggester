@@ -1,4 +1,4 @@
-import type { AutoprompterConfig } from "./types.js";
+import type { PromptSuggesterConfig } from "./types.js";
 
 function isObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -12,7 +12,7 @@ function isPositiveNumber(value: unknown): boolean {
 	return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
-export function validateConfig(config: unknown): config is AutoprompterConfig {
+export function validateConfig(config: unknown): config is PromptSuggesterConfig {
 	if (!isObject(config)) return false;
 	if (!isObject(config.seed) || !isObject(config.reseed) || !isObject(config.suggestion)) return false;
 	if (!isObject(config.steering) || !isObject(config.logging)) return false;

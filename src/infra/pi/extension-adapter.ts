@@ -120,9 +120,9 @@ export class PiExtensionAdapter {
 			return { action: "continue" };
 		});
 
-		this.pi.registerCommand("autoprompter", {
+		this.pi.registerCommand("suggester", {
 			description:
-				"autoprompter controls: status | reseed | clear | model [show|set|clear] | thinking [show|set|clear] | seed-trace [limit]",
+				"suggester controls: status | reseed | clear | model [show|set|clear] | thinking [show|set|clear] | seed-trace [limit]",
 			handler: async (args, ctx) => {
 				const trimmed = args.trim();
 				const [subcommand, ...rest] = trimmed.length > 0 ? trimmed.split(/\s+/) : ["status"];

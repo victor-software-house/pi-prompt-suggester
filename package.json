@@ -1,5 +1,5 @@
 {
-  "name": "pi-autoprompter",
+  "name": "pi-prompt-suggester",
   "version": "0.1.0",
   "private": true,
   "type": "module",

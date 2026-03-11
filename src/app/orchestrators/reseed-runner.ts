@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { AutoprompterConfig } from "../../config/types.js";
+import type { PromptSuggesterConfig } from "../../config/types.js";
 import {
 	CURRENT_GENERATOR_VERSION,
 	CURRENT_SEED_VERSION,
@@ -32,7 +32,7 @@ function createRunId(): string {
 }
 
 export interface ReseedRunnerDeps {
-	config: AutoprompterConfig;
+	config: PromptSuggesterConfig;
 	seedStore: SeedStore;
 	stateStore: StateStore;
 	modelClient: ModelClient;
@@ -63,7 +63,7 @@ export class ReseedRunner {
 		}
 
 		this.running = true;
-		await this.deps.taskQueue.enqueue("autoprompter:reseed", async () => {
+		await this.deps.taskQueue.enqueue("suggester:reseed", async () => {
 			let nextTrigger: ReseedTrigger | null = trigger;
 			while (nextTrigger) {
 				const current = nextTrigger;

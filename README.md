@@ -1,10 +1,10 @@
-# pi-autoprompter
+# pi-prompt-suggester
 
 A pi extension that suggests the user's likely next prompt after each assistant completion.
 
 ## Core idea
 
-Instead of naive autocomplete, `pi-autoprompter` uses a two-stage approach:
+Instead of naive autocomplete, `pi-prompt-suggester` uses a two-stage approach:
 
 1. **Seeding pass (meta-meta prompt, infrequent):**
    - Explore repository intent from vision/docs/code signals
@@ -20,15 +20,15 @@ Instead of naive autocomplete, `pi-autoprompter` uses a two-stage approach:
 
 Implemented end-to-end:
 - async, non-blocking seed generation and reseeding
-- seed persistence in `.pi/autoprompter/seed.json`
+- seed persistence in `.pi/suggester/seed.json`
 - session/branch-aware steering + model/thinking overrides via pi custom session entries
 - `agent_end`-driven prompt suggestion generation
 - fast-path `continue` for error completions; aborted turns use model-based suggestion with abort context
 - suggestion display with guarded editor prefill
 - steering capture from the next real user input
-- persistent observability log in `.pi/autoprompter/logs/events.ndjson`
-- `/autoprompter status`, `/autoprompter reseed`, `/autoprompter clear`
-- `/autoprompter model ...`, `/autoprompter thinking ...`, `/autoprompter seed-trace [limit]`
+- persistent observability log in `.pi/suggester/logs/events.ndjson`
+- `/suggester status`, `/suggester reseed`, `/suggester clear`
+- `/suggester model ...`, `/suggester thinking ...`, `/suggester seed-trace [limit]`
 
 ## Key files
 
@@ -37,4 +37,4 @@ Implemented end-to-end:
 - [`docs/meta-prompts.md`](./docs/meta-prompts.md)
 - [`docs/architecture-decisions.md`](./docs/architecture-decisions.md)
 - [`docs/roadmap.md`](./docs/roadmap.md)
-- [`config/autoprompter.config.json`](./config/autoprompter.config.json) ← single source of truth for the base config
+- [`config/prompt-suggester.config.json`](./config/prompt-suggester.config.json) ← single source of truth for the base config

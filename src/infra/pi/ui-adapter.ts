@@ -14,7 +14,7 @@ function formatUsage(usage: SuggestionUsageStats): string {
 	const lastPromptTokens = usage.last?.inputTokens ?? 0;
 	const lastTokens = usage.last?.totalTokens ?? 0;
 	const lastCost = usage.last?.costTotal ?? 0;
-	return `↳ autoprompter usage prompt ${lastPromptTokens} tok · last ${lastTokens} tok $${lastCost.toFixed(4)} · total ${usage.totalTokens} tok $${usage.costTotal.toFixed(4)} (${usage.calls} calls)`;
+	return `↳ suggester usage prompt ${lastPromptTokens} tok · last ${lastTokens} tok $${lastCost.toFixed(4)} · total ${usage.totalTokens} tok $${usage.costTotal.toFixed(4)} (${usage.calls} calls)`;
 }
 
 export class PiSuggestionSink implements SuggestionSink {
@@ -39,19 +39,19 @@ export class PiSuggestionSink implements SuggestionSink {
 					: trimmedEditorText.length === 0 || prefixCompatible);
 
 		ctx.ui.setStatus(
-			"autoprompter",
+			"suggester",
 			theme.fg("accent", options?.restore ? "✦ restored prompt suggestion" : "✦ prompt suggestion"),
 		);
 
 		if (canGhostInEditor) {
 			this.runtime.setSuggestion(text);
-			ctx.ui.setWidget("autoprompter", undefined);
+			ctx.ui.setWidget("suggester", undefined);
 			return;
 		}
 
 		this.runtime.setSuggestion(undefined);
 		ctx.ui.setWidget(
-			"autoprompter",
+			"suggester",
 			[
 				`${theme.fg("accent", "Suggested next prompt")}`,
 				text,
@@ -66,17 +66,17 @@ export class PiSuggestionSink implements SuggestionSink {
 		const ctx = this.runtime.getContext();
 		this.runtime.setSuggestion(undefined);
 		if (!ctx?.hasUI) return;
-		ctx.ui.setWidget("autoprompter", undefined);
-		ctx.ui.setStatus("autoprompter", undefined);
+		ctx.ui.setWidget("suggester", undefined);
+		ctx.ui.setStatus("suggester", undefined);
 	}
 
 	public async setUsage(usage: SuggestionUsageStats): Promise<void> {
 		const ctx = this.runtime.getContext();
 		if (!ctx?.hasUI) return;
 		if (usage.calls <= 0) {
-			ctx.ui.setStatus("autoprompter-usage", undefined);
+			ctx.ui.setStatus("suggester-usage", undefined);
 			return;
 		}
-		ctx.ui.setStatus("autoprompter-usage", ctx.ui.theme.fg("dim", formatUsage(usage)));
+		ctx.ui.setStatus("suggester-usage", ctx.ui.theme.fg("dim", formatUsage(usage)));
 	}
 }

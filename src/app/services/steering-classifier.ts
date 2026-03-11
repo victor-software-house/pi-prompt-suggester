@@ -1,4 +1,4 @@
-import type { AutoprompterConfig } from "../../config/types.js";
+import type { PromptSuggesterConfig } from "../../config/types.js";
 import type { SteeringClassification } from "../../domain/steering.js";
 
 export interface SteeringClassificationResult {
@@ -47,7 +47,7 @@ function sequenceSimilarity(a: string, b: string): number {
 }
 
 export class SteeringClassifier {
-	public constructor(private readonly config: AutoprompterConfig) {}
+	public constructor(private readonly config: PromptSuggesterConfig) {}
 
 	public classify(suggestedPrompt: string, actualUserPrompt: string): SteeringClassificationResult {
 		const suggested = normalizeText(suggestedPrompt);

@@ -2,7 +2,7 @@ import type { ExtensionAPI, SessionEntry } from "@mariozechner/pi-coding-agent";
 import type { StateStore } from "../../app/ports/state-store.js";
 import { CURRENT_RUNTIME_STATE_VERSION, INITIAL_RUNTIME_STATE, type RuntimeState } from "../../domain/state.js";
 
-const STATE_CUSTOM_TYPE = "autoprompter-state";
+const STATE_CUSTOM_TYPE = "prompt-suggester-state";
 
 interface BranchReadableSessionManager {
 	getBranch(): SessionEntry[];
