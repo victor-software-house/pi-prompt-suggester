@@ -111,6 +111,37 @@ export default function suggester(pi: ExtensionAPI) {
 					setPanelSuggestionStatus: (text) => composition.runtimeRef.setPanelSuggestionStatus(text),
 					getPanelLogStatus: () => composition.runtimeRef.getPanelLogStatus(),
 					setPanelLogStatus: (status) => composition.runtimeRef.setPanelLogStatus(status),
+					getSuggesterModelDisplay: () => {
+						const activeCtx = composition.runtimeRef.getContext();
+						if (!activeCtx?.model) return undefined;
+
+						let provider = activeCtx.model.provider;
+						let modelId = activeCtx.model.id;
+						const configuredModel = composition.config.inference.suggesterModel.trim();
+						if (configuredModel && configuredModel !== "session-default") {
+							if (configuredModel.includes("/")) {
+								const [configuredProvider, ...rest] = configuredModel.split("/");
+								provider = configuredProvider;
+								modelId = rest.join("/");
+							} else {
+								const matches = activeCtx.modelRegistry.getAll().filter((model) => model.id === configuredModel);
+								if (matches.length === 1) {
+									provider = matches[0].provider;
+									modelId = matches[0].id;
+								} else {
+									modelId = configuredModel;
+								}
+							}
+						}
+
+						const thinking = composition.config.inference.suggesterThinking === "session-default"
+							? pi.getThinkingLevel()
+							: composition.config.inference.suggesterThinking;
+						const providerCount = new Set(activeCtx.modelRegistry.getAll().map((model) => model.provider)).size;
+						const modelLabel = providerCount > 1 ? `(${provider}) ${modelId}` : modelId;
+						const thinkingLabel = thinking === "off" ? "thinking off" : thinking;
+						return `${modelLabel} • ${thinkingLabel}`;
+					},
 					prefillOnlyWhenEditorEmpty: composition.config.suggestion.prefillOnlyWhenEditorEmpty,
 				});
 			}

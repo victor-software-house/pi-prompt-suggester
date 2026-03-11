@@ -41,6 +41,37 @@ export interface AppComposition {
 export async function createAppComposition(pi: ExtensionAPI, cwd: string = process.cwd()): Promise<AppComposition> {
 	const config = await new FileConfigLoader(cwd).load();
 	const runtimeRef = new RuntimeRef();
+	const getSuggesterModelDisplay = (): string | undefined => {
+		const ctx = runtimeRef.getContext();
+		if (!ctx?.model) return undefined;
+
+		let provider = ctx.model.provider;
+		let modelId = ctx.model.id;
+		const configuredModel = config.inference.suggesterModel.trim();
+		if (configuredModel && configuredModel !== "session-default") {
+			if (configuredModel.includes("/")) {
+				const [configuredProvider, ...rest] = configuredModel.split("/");
+				provider = configuredProvider;
+				modelId = rest.join("/");
+			} else {
+				const matches = ctx.modelRegistry.getAll().filter((model) => model.id === configuredModel);
+				if (matches.length === 1) {
+					provider = matches[0].provider;
+					modelId = matches[0].id;
+				} else {
+					modelId = configuredModel;
+				}
+			}
+		}
+
+		const thinking = config.inference.suggesterThinking === "session-default"
+			? pi.getThinkingLevel()
+			: config.inference.suggesterThinking;
+		const providerCount = new Set(ctx.modelRegistry.getAll().map((model) => model.provider)).size;
+		const modelLabel = providerCount > 1 ? `(${provider}) ${modelId}` : modelId;
+		const thinkingLabel = thinking === "off" ? "thinking off" : thinking;
+		return `${modelLabel} • ${thinkingLabel}`;
+	};
 	const eventLog = new NdjsonEventLog(path.join(cwd, ".pi", "suggester", "logs", "events.ndjson"));
 	const logger = new ConsoleLogger(config.logging.level, {
 		getContext: () => runtimeRef.getContext(),
@@ -58,6 +89,7 @@ export async function createAppComposition(pi: ExtensionAPI, cwd: string = proce
 				setPanelSuggestionStatus: (text) => runtimeRef.setPanelSuggestionStatus(text),
 				getPanelLogStatus: () => runtimeRef.getPanelLogStatus(),
 				setPanelLogStatus: (next) => runtimeRef.setPanelLogStatus(next),
+				getSuggesterModelDisplay,
 				prefillOnlyWhenEditorEmpty: config.suggestion.prefillOnlyWhenEditorEmpty,
 			});
 		},
@@ -78,6 +110,7 @@ export async function createAppComposition(pi: ExtensionAPI, cwd: string = proce
 		setPanelSuggestionStatus: (text) => runtimeRef.setPanelSuggestionStatus(text),
 		getPanelLogStatus: () => runtimeRef.getPanelLogStatus(),
 		setPanelLogStatus: (status) => runtimeRef.setPanelLogStatus(status),
+		getSuggesterModelDisplay,
 		prefillOnlyWhenEditorEmpty: config.suggestion.prefillOnlyWhenEditorEmpty,
 	});
 

@@ -167,8 +167,8 @@ export function renderStatus(
 	const combinedOutput = state.suggestionUsage.outputTokens + state.seederUsage.outputTokens;
 	const combinedCacheRead = state.suggestionUsage.cacheReadTokens + state.seederUsage.cacheReadTokens;
 	const combinedCost = state.suggestionUsage.costTotal + state.seederUsage.costTotal;
-	const seededPromptTokens = state.seederUsage.last?.inputTokens ?? 0;
-	const compactUsageLine = `suggester usage: ↑${formatTokens(combinedInput)} ↓${formatTokens(combinedOutput)} R${formatTokens(combinedCacheRead)} $${combinedCost.toFixed(3)} (${state.suggestionUsage.calls} sugg, ${state.seederUsage.calls} seed), seeded prompt: ${seededPromptTokens} tok`;
+	const suggesterPromptTokens = state.suggestionUsage.last?.inputTokens ?? 0;
+	const compactUsageLine = `suggester usage: ↑${formatTokens(combinedInput)} ↓${formatTokens(combinedOutput)} R${formatTokens(combinedCacheRead)} $${combinedCost.toFixed(3)} (${state.suggestionUsage.calls} sugg, ${state.seederUsage.calls} seed), last suggester prompt: ${formatTokens(suggesterPromptTokens)} tok`;
 
 	return [
 		"Suggester status",

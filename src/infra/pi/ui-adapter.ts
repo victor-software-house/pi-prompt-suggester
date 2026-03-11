@@ -12,6 +12,7 @@ export interface UiContextLike {
 	setPanelSuggestionStatus(text: string | undefined): void;
 	getPanelLogStatus(): { level: "debug" | "info" | "warn" | "error"; text: string } | undefined;
 	setPanelLogStatus(status: { level: "debug" | "info" | "warn" | "error"; text: string } | undefined): void;
+	getSuggesterModelDisplay(): string | undefined;
 	prefillOnlyWhenEditorEmpty: boolean;
 }
 
@@ -23,13 +24,16 @@ function formatTokens(count: number): string {
 	return `${Math.round(count / 1000000)}M`;
 }
 
-function formatUsage(usage: { suggester: SuggestionUsageStats; seeder: SuggestionUsageStats }): string {
+function formatUsage(
+	usage: { suggester: SuggestionUsageStats; seeder: SuggestionUsageStats },
+	suggesterModelDisplay: string | undefined,
+): string {
 	const combinedInput = usage.suggester.inputTokens + usage.seeder.inputTokens;
 	const combinedOutput = usage.suggester.outputTokens + usage.seeder.outputTokens;
 	const combinedCacheRead = usage.suggester.cacheReadTokens + usage.seeder.cacheReadTokens;
 	const combinedCost = usage.suggester.costTotal + usage.seeder.costTotal;
-	const suggesterPromptTokens = usage.suggester.last?.inputTokens ?? 0;
-	return `suggester usage: ↑${formatTokens(combinedInput)} ↓${formatTokens(combinedOutput)} R${formatTokens(combinedCacheRead)} $${combinedCost.toFixed(3)} (${usage.suggester.calls} sugg, ${usage.seeder.calls} seed), last suggester prompt: ${formatTokens(suggesterPromptTokens)} tok`;
+	const suffix = suggesterModelDisplay ? `, suggester: ${suggesterModelDisplay}` : "";
+	return `suggester usage: ↑${formatTokens(combinedInput)} ↓${formatTokens(combinedOutput)} R${formatTokens(combinedCacheRead)} $${combinedCost.toFixed(3)} (${usage.suggester.calls} sugg, ${usage.seeder.calls} seed)${suffix}`;
 }
 
 function formatPanelLog(
@@ -119,6 +123,9 @@ export class PiSuggestionSink implements SuggestionSink {
 			ctx.ui.setStatus("suggester-usage", undefined);
 			return;
 		}
-		ctx.ui.setStatus("suggester-usage", ctx.ui.theme.fg("dim", formatUsage(usage)));
+		ctx.ui.setStatus(
+			"suggester-usage",
+			ctx.ui.theme.fg("dim", formatUsage(usage, this.runtime.getSuggesterModelDisplay())),
+		);
 	}
 }
