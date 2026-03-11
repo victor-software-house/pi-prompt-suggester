@@ -20,7 +20,7 @@
     "maxTouchedFiles": 8,
     "maxUnresolvedQuestions": 6,
     "maxAbortContextChars": 280,
-    "maxSuggestionChars": 250,
+    "maxSuggestionChars": 200,
     "prefillOnlyWhenEditorEmpty": true
   },
   "steering": {
