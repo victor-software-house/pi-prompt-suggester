@@ -23,8 +23,8 @@ function formatUsage(usage: { suggester: SuggestionUsageStats; seeder: Suggestio
 	const combinedOutput = usage.suggester.outputTokens + usage.seeder.outputTokens;
 	const combinedCacheRead = usage.suggester.cacheReadTokens + usage.seeder.cacheReadTokens;
 	const combinedCost = usage.suggester.costTotal + usage.seeder.costTotal;
-	const seededPromptTokens = usage.seeder.last?.inputTokens ?? 0;
-	return `suggester usage: ↑${formatTokens(combinedInput)} ↓${formatTokens(combinedOutput)} R${formatTokens(combinedCacheRead)} $${combinedCost.toFixed(3)} (${usage.suggester.calls} sugg, ${usage.seeder.calls} seed), seeded prompt: ${seededPromptTokens} tok`;
+	const suggesterPromptTokens = usage.suggester.last?.inputTokens ?? 0;
+	return `suggester usage: ↑${formatTokens(combinedInput)} ↓${formatTokens(combinedOutput)} R${formatTokens(combinedCacheRead)} $${combinedCost.toFixed(3)} (${usage.suggester.calls} sugg, ${usage.seeder.calls} seed), last suggester prompt: ${formatTokens(suggesterPromptTokens)} tok`;
 }
 
 export class PiSuggestionSink implements SuggestionSink {
