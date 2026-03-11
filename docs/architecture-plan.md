@@ -316,7 +316,6 @@ Optional debug command:
   "steering": {
     "historyWindow": 20,
     "acceptedThreshold": 0.82,
-    "maxAcceptedExamples": 4,
     "maxChangedExamples": 6
   },
   "logging": {

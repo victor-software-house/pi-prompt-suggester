@@ -55,7 +55,6 @@ export function validateConfig(config: unknown): config is PromptSuggesterConfig
 	if (!isPositiveInteger(steering.historyWindow)) return false;
 	const acceptedThreshold = steering.acceptedThreshold;
 	if (typeof acceptedThreshold !== "number" || !isPositiveNumber(acceptedThreshold) || acceptedThreshold > 1) return false;
-	if (!isPositiveInteger(steering.maxAcceptedExamples)) return false;
 	if (!isPositiveInteger(steering.maxChangedExamples)) return false;
 
 	if (!isPositiveInteger(feedback.maxStoredHints)) return false;

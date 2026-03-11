@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "seed": {
     "keyFileGlobs": ["README.md", "vision.md", "docs/**/*.md", "src/index.ts", "package.json"],
     "maxDiffChars": 3000
@@ -26,8 +26,7 @@
   "steering": {
     "historyWindow": 20,
     "acceptedThreshold": 0.82,
-    "maxAcceptedExamples": 20,
-    "maxChangedExamples": 20
+    "maxChangedExamples": 3
   },
   "logging": {
     "level": "info"

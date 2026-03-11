@@ -23,7 +23,6 @@ export interface SuggestionPromptContext {
 	touchedFiles: string[];
 	unresolvedQuestions: string[];
 	abortContextNote?: string;
-	recentAccepted: SteeringSlice["recentAccepted"];
 	recentChanged: SteeringSlice["recentChanged"];
 	rejectionHints: SuggestionFeedbackHint[];
 	noSuggestionToken: string;
@@ -54,7 +53,6 @@ export class PromptContextBuilder {
 			abortContextNote: turn.abortContextNote
 				? truncate(turn.abortContextNote, this.config.suggestion.maxAbortContextChars)
 				: undefined,
-			recentAccepted: steering.recentAccepted.slice(0, this.config.steering.maxAcceptedExamples),
 			recentChanged: steering.recentChanged.slice(0, this.config.steering.maxChangedExamples),
 			rejectionHints,
 			noSuggestionToken: this.config.suggestion.noSuggestionToken,

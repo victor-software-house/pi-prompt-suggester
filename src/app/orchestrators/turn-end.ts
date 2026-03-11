@@ -87,7 +87,6 @@ export class TurnEndOrchestrator {
 
 		const [seed, state] = await Promise.all([this.deps.seedStore.load(), this.deps.stateStore.load()]);
 		const steering = {
-			recentAccepted: state.steeringHistory.filter((event) => event.classification !== "changed_course").reverse(),
 			recentChanged: state.steeringHistory.filter((event) => event.classification === "changed_course").reverse(),
 		};
 		const activeHints = state.rejectionHints.filter((hint) => hint.remainingUses > 0);
@@ -172,7 +171,6 @@ export class TurnEndOrchestrator {
 		};
 		const boundedHints = [...state.rejectionHints, newHint].slice(-this.deps.config.feedback.maxStoredHints);
 		const steering = {
-			recentAccepted: state.steeringHistory.filter((event) => event.classification !== "changed_course").reverse(),
 			recentChanged: state.steeringHistory.filter((event) => event.classification === "changed_course").reverse(),
 		};
 		const suggestion = await this.deps.suggestionEngine.suggest(

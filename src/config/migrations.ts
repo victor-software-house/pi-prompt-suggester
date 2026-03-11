@@ -1,4 +1,4 @@
-export const CURRENT_CONFIG_SCHEMA_VERSION = 1;
+export const CURRENT_CONFIG_SCHEMA_VERSION = 2;
 
 type ConfigObject = Record<string, unknown>;
 
@@ -13,6 +13,16 @@ function migrateV0ToV1(config: ConfigObject): ConfigObject {
 		...config,
 		schemaVersion: 1,
 	};
+}
+
+function migrateV1ToV2(config: ConfigObject): ConfigObject {
+	const next: ConfigObject = { ...config, schemaVersion: 2 };
+	const steering = next.steering;
+	if (steering && typeof steering === "object" && !Array.isArray(steering)) {
+		const { maxAcceptedExamples: _removed, ...rest } = steering as ConfigObject & { maxAcceptedExamples?: unknown };
+		next.steering = rest;
+	}
+	return next;
 }
 
 export function migrateOverrideConfig(config: ConfigObject): {
@@ -40,6 +50,11 @@ export function migrateOverrideConfig(config: ConfigObject): {
 			case 0:
 				migrated = migrateV0ToV1(migrated);
 				current = 1;
+				changed = true;
+				break;
+			case 1:
+				migrated = migrateV1ToV2(migrated);
+				current = 2;
 				changed = true;
 				break;
 			default:

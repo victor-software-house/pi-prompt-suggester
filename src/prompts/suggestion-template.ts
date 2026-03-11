@@ -1,15 +1,14 @@
 import type { SuggestionPromptContext } from "../app/services/prompt-context-builder.js";
 
-function renderExamples(
-	title: string,
-	examples: Array<{ suggestedPrompt: string; actualUserPrompt: string; classification?: string; similarity?: number }>,
+function renderChangedExamples(
+	examples: Array<{ suggestedPrompt: string; actualUserPrompt: string }>,
 ): string {
-	if (examples.length === 0) return `${title}:\n(none)`;
-	return `${title}:\n${examples
-		.map((example) => {
-			const suffix = example.classification ? ` [${example.classification}, sim=${example.similarity?.toFixed(2) ?? "n/a"}]` : "";
-			return `- suggested: ${JSON.stringify(example.suggestedPrompt)}\n  user_sent: ${JSON.stringify(example.actualUserPrompt)}${suffix}`;
-		})
+	if (examples.length === 0) return "RecentChangedExamples:\n(none)";
+	return `RecentChangedExamples:\n${examples
+		.map(
+			(example) =>
+				`- avoid repeating suggestion: ${JSON.stringify(example.suggestedPrompt)}\n  user actually asked: ${JSON.stringify(example.actualUserPrompt)}`,
+		)
 		.join("\n")}`;
 }
 
@@ -41,13 +40,16 @@ export function renderSuggestionPrompt(context: SuggestionPromptContext): string
 You generate the single best next user prompt for this pi coding-agent session.
 
 Task:
-Given the recent trajectory, and steering history and latest assistant completion, output the one prompt the user is most likely to want next.
+Use the real recent user prompt history as the main behavior signal, then combine it with the current turn context and latest assistant completion to output the one prompt the user is most likely to want next.
 
 TurnStatus:
 ${context.turnStatus}
 
 AbortContext:
 ${context.abortContextNote ?? "(none)"}
+
+IntentSeed:
+${intentSeed}
 
 RecentUserPrompts:
 ${context.recentUserPrompts.length > 0 ? context.recentUserPrompts.map((prompt) => `- ${prompt}`).join("\n") : "(none)"}
@@ -76,18 +78,14 @@ ${
 		: "(none)"
 }
 
-IntentSeed:
-${intentSeed}
-
-${renderExamples("RecentSteeringAccepted", context.recentAccepted)}
-
-${renderExamples("RecentSteeringChanged", context.recentChanged)}
+${renderChangedExamples(context.recentChanged)}
 
 Instructions:
 - Generate one concrete, immediately actionable user prompt.
+- Use RecentUserPrompts as the main signal for what the user actually wants.
 - Preserve current trajectory unless the latest assistant output strongly suggests a pivot.
 - If AbortContext is present, treat it as a strong signal that the user intentionally interrupted the previous execution.
-- Learn from changed examples: avoid repeating rejected phrasing or direction.
+- Learn from changed examples and rejection hints: avoid repeating rejected phrasing or direction.
 - Prefer specific next actions over generic meta-prompts.
 - You may return a multi-line prompt when it improves clarity.
 - Keep the result under ${context.maxSuggestionChars} characters. Prefer less characters when possible.

@@ -147,11 +147,11 @@ The prompt-generator agent should receive a structured explanation of:
 
 1. `Role`
 2. `Task`
-3. `LatestAssistantTurn`
-4. `TurnStatus`
-5. `IntentSeed` (or `none`)
-6. `RecentSteeringAccepted`
-7. `RecentSteeringChanged`
+3. `TurnStatus`
+4. `IntentSeed` (or `none`)
+5. `RecentUserPrompts`
+6. `RecentSteeringChanged`
+7. `LatestAssistantTurn`
 8. `Instructions`
 
 ### Instructions content
@@ -280,7 +280,6 @@ Checker steps:
 - `steeringWindow` (default 20)
 - `acceptedSimilarityThreshold` (default 0.82)
 - `maxChangedExamplesInPrompt` (default 6)
-- `maxAcceptedExamplesInPrompt` (default 4)
 - `maxAssistantTurnChars` (default 4000)
 - `maxDiffCharsForReseedContext` (default 3000)
 

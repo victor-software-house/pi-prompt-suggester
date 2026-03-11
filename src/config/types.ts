@@ -30,7 +30,6 @@ export interface SuggestionConfig {
 export interface SteeringConfig {
 	historyWindow: number;
 	acceptedThreshold: number;
-	maxAcceptedExamples: number;
 	maxChangedExamples: number;
 }
 
