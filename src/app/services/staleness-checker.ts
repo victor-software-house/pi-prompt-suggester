@@ -65,7 +65,7 @@ export class StalenessChecker {
 					gitDiffSummary: await this.deps.vcs.getDiffSummary(changedFiles, this.deps.config.seed.maxDiffChars),
 				},
 			};
-			}
+		}
 
 		const changedKeyFiles: string[] = [];
 		for (const keyFile of seed.keyFiles) {
@@ -107,7 +107,6 @@ export class StalenessChecker {
 
 	private async collectChangedFiles(seed: SeedArtifact): Promise<string[]> {
 		const files = new Set<string>();
-		for (const file of seed.lastChangedFiles ?? []) files.add(file);
 		for (const file of await this.deps.vcs.getWorkingTreeStatus()) files.add(file);
 		if (seed.sourceCommit) {
 			for (const file of await this.deps.vcs.getChangedFilesSinceCommit(seed.sourceCommit)) files.add(file);

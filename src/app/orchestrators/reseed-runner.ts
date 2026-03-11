@@ -65,55 +65,67 @@ export class ReseedRunner {
 		}
 
 		this.running = true;
-		await this.deps.taskQueue.enqueue("suggester:reseed", async () => {
-			let nextTrigger: ReseedTrigger | null = trigger;
-			while (nextTrigger) {
-				const current = nextTrigger;
-				nextTrigger = null;
-				const runId = createRunId();
-				this.deps.logger.info("reseed.started", {
+		void this.deps.taskQueue
+			.enqueue("suggester:reseed", async () => {
+				await this.processTriggerLoop(trigger);
+			})
+			.catch((error) => {
+				this.deps.logger.error("reseed.queue.failed", {
+					error: (error as Error).message,
+				});
+			})
+			.finally(() => {
+				this.running = false;
+			});
+	}
+
+	private async processTriggerLoop(initialTrigger: ReseedTrigger): Promise<void> {
+		let nextTrigger: ReseedTrigger | null = initialTrigger;
+		while (nextTrigger) {
+			const current = nextTrigger;
+			nextTrigger = null;
+			const runId = createRunId();
+			this.deps.logger.info("reseed.started", {
+				runId,
+				reason: current.reason,
+				changedFiles: current.changedFiles,
+			});
+
+			try {
+				const previousSeed = await this.deps.seedStore.load();
+				const seedDraft = await this.deps.modelClient.generateSeed({
+					reseedTrigger: current,
+					previousSeed,
+					settings: {
+						modelRef:
+							this.deps.config.inference.seederModel === "session-default"
+								? undefined
+								: this.deps.config.inference.seederModel,
+						thinkingLevel: toThinking(this.deps.config.inference.seederThinking),
+					},
+					runId,
+				});
+				const seed = await this.finalizeSeed(seedDraft, current);
+				await this.deps.seedStore.save(seed);
+				this.deps.logger.info("reseed.completed", {
 					runId,
 					reason: current.reason,
-					changedFiles: current.changedFiles,
+					keyFiles: seed.keyFiles.map((file) => file.path),
+					categoryFindings: seed.categoryFindings,
 				});
-
-				try {
-					const previousSeed = await this.deps.seedStore.load();
-					const seedDraft = await this.deps.modelClient.generateSeed({
-						reseedTrigger: current,
-						previousSeed,
-						settings: {
-							modelRef:
-								this.deps.config.inference.seederModel === "session-default"
-									? undefined
-									: this.deps.config.inference.seederModel,
-							thinkingLevel: toThinking(this.deps.config.inference.seederThinking),
-						},
-						runId,
-					});
-					const seed = await this.finalizeSeed(seedDraft, current);
-					await this.deps.seedStore.save(seed);
-					this.deps.logger.info("reseed.completed", {
-						runId,
-						reason: current.reason,
-						keyFiles: seed.keyFiles.map((file) => file.path),
-						categoryFindings: seed.categoryFindings,
-					});
-				} catch (error) {
-					this.deps.logger.error("reseed.failed", {
-						runId,
-						reason: current.reason,
-						error: (error as Error).message,
-					});
-				}
-
-				if (this.pendingTrigger) {
-					nextTrigger = this.pendingTrigger;
-					this.pendingTrigger = null;
-				}
+			} catch (error) {
+				this.deps.logger.error("reseed.failed", {
+					runId,
+					reason: current.reason,
+					error: (error as Error).message,
+				});
 			}
-		});
-		this.running = false;
+
+			if (this.pendingTrigger) {
+				nextTrigger = this.pendingTrigger;
+				this.pendingTrigger = null;
+			}
+		}
 	}
 
 	public isRunning(): boolean {

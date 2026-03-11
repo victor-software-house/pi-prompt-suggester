@@ -38,7 +38,7 @@ export class SuggestionEngine {
 		settings?: ModelInvocationSettings,
 		options?: SuggestionRequestOptions,
 	): Promise<SuggestionResult> {
-		if (this.deps.config.suggestion.fastPathContinueOnError && turn.status === "error") {
+		if (this.deps.config.suggestion.fastPathContinueOnError && turn.status !== "success") {
 			return {
 				kind: "suggestion",
 				text: "continue",

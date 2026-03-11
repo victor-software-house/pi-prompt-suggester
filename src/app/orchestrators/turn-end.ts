@@ -81,7 +81,7 @@ export class TurnEndOrchestrator {
 			const currentSeed = await this.deps.seedStore.load();
 			const staleness = await this.deps.stalenessChecker.check(currentSeed);
 			if (staleness.stale && staleness.trigger) {
-				await this.deps.reseedRunner.trigger(staleness.trigger);
+				void this.deps.reseedRunner.trigger(staleness.trigger);
 			}
 		}
 

@@ -69,8 +69,7 @@ Inputs:
 - recent accepted/changed steering examples
 
 Behavior:
-- error turns can still fast-path to `continue` (configurable)
-- aborted turns go through model path with abort context
+- non-success turns (`error`, `aborted`) can fast-path to `continue` (configurable)
 - output is one suggestion or `[no suggestion]`
 - multi-line suggestions allowed; bounded by `maxSuggestionChars`
 

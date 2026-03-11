@@ -33,7 +33,7 @@ export class SessionStartOrchestrator {
 			reason: staleness.trigger?.reason,
 		});
 		if (staleness.stale && staleness.trigger) {
-			await this.deps.reseedRunner.trigger(staleness.trigger);
+			void this.deps.reseedRunner.trigger(staleness.trigger);
 		}
 	}
 }

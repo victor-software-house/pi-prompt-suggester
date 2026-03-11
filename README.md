@@ -23,7 +23,7 @@ Implemented end-to-end:
 - seed persistence in `.pi/suggester/seed.json`
 - session/branch-aware steering history via pi custom session entries
 - `agent_end`-driven prompt suggestion generation
-- fast-path `continue` for error completions; aborted turns use model-based suggestion with abort context
+- fast-path `continue` for non-success completions (`error` and `aborted`) when enabled
 - suggestion display with guarded editor prefill
 - steering capture from the next real user input
 - persistent observability log in `.pi/suggester/logs/events.ndjson`
@@ -84,6 +84,5 @@ Notes:
 
 ### Behavior summary
 - Suggestion generation runs on `agent_end`
-- Error turns can fast-path to `continue` (configurable)
-- Aborted turns are model-suggested with abort context
+- Non-success turns (`error`, `aborted`) can fast-path to `continue` (configurable)
 - Suggestions are ghosted in editor when safe; otherwise shown below editor

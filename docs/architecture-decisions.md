@@ -24,9 +24,9 @@
 - **Decision:** keep `topObjectives[]` and `constraints[]`, plus summaries for intent/objectives/constraints/principles/status.
 - **Why:** prompt generation needs both compact narrative context and list-style anchors.
 
-## 7) Aborted turns go through model path; error turns may fast-path
-- **Decision:** preserve configurable fast-path `continue` for `error`; include abort context for `aborted` and run normal suggestion generation.
-- **Why:** aborted turns are often intentional pivots and benefit from contextual suggestions.
+## 7) Non-success turns may fast-path to `continue`
+- **Decision:** preserve configurable fast-path `continue` for both `error` and `aborted` turns.
+- **Why:** keeps recovery/pivot behavior immediate and predictable after unsuccessful completions.
 
 ## 8) Suggestion UX uses ghost editor + guarded fallback
 - **Decision:** render ghost suggestion when safe; otherwise show below-editor widget.

@@ -49,8 +49,7 @@ Output:
 - or exact no-suggestion token (`[no suggestion]` by default)
 
 Behavior notes:
-- `error` can be fast-pathed to `continue` by config
-- `aborted` turns are model-generated with explicit abort context
+- non-success turns (`error`, `aborted`) can be fast-pathed to `continue` by config
 
 ---
 
