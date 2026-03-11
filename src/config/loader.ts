@@ -61,7 +61,7 @@ export class FileConfigLoader implements ConfigLoader {
 	) {}
 
 	public async load(): Promise<AutoprompterConfig> {
-		const defaultPath = path.join(this.cwd, "config", "autoprompter.defaults.json");
+		const defaultPath = path.join(this.cwd, "config", "autoprompter.config.json");
 		const userPath = path.join(this.homeDir, ".pi", "autoprompter", "config.json");
 		const projectPath = path.join(this.cwd, ".pi", "autoprompter", "config.json");
 
