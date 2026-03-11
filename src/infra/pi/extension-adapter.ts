@@ -18,7 +18,6 @@ export interface ExtensionWiring {
 	onUserSubmit: (event: InputEvent, ctx: ExtensionContext) => Promise<void>;
 	onReseedCommand: (ctx: ExtensionCommandContext) => Promise<void>;
 	onStatusCommand: (ctx: ExtensionCommandContext) => Promise<void>;
-	onClearCommand: (ctx: ExtensionCommandContext) => Promise<void>;
 	onModelCommand: (args: string, ctx: ExtensionCommandContext) => Promise<void>;
 	onThinkingCommand: (args: string, ctx: ExtensionCommandContext) => Promise<void>;
 	onSeedTraceCommand: (args: string, ctx: ExtensionCommandContext) => Promise<void>;
@@ -121,16 +120,12 @@ export class PiExtensionAdapter {
 
 		this.pi.registerCommand("suggester", {
 			description:
-				"suggester controls: status | reseed | clear | model [show|set|clear] | thinking [show|set|clear] | seed-trace [limit]",
+				"suggester controls: status | reseed | model [show|set|clear] | thinking [show|set|clear] | seed-trace [limit]",
 			handler: async (args, ctx) => {
 				const trimmed = args.trim();
 				const [subcommand, ...rest] = trimmed.length > 0 ? trimmed.split(/\s+/) : ["status"];
 				if (subcommand === "reseed") {
 					await this.wiring.onReseedCommand(ctx);
-					return;
-				}
-				if (subcommand === "clear") {
-					await this.wiring.onClearCommand(ctx);
 					return;
 				}
 				if (subcommand === "model") {

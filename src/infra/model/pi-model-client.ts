@@ -4,11 +4,10 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { completeSimple, type Model, type UserMessage } from "@mariozechner/pi-ai";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import type { ModelClient } from "../../app/ports/model-client.js";
+import type { ModelClient, ModelInvocationSettings } from "../../app/ports/model-client.js";
 import type { Logger } from "../../app/ports/logger.js";
 import type { SuggestionPromptContext } from "../../app/services/prompt-context-builder.js";
 import type { SuggestionUsage } from "../../domain/suggestion.js";
-import type { ModelRoleSettings } from "../../domain/state.js";
 import {
 	REQUIRED_SEED_CATEGORIES,
 	type SeedArtifact,
@@ -233,7 +232,7 @@ export class PiModelClient implements ModelClient {
 	public async generateSeed(input: {
 		reseedTrigger: import("../../domain/seed.js").ReseedTrigger;
 		previousSeed: SeedArtifact | null;
-		settings?: ModelRoleSettings;
+		settings?: ModelInvocationSettings;
 		runId?: string;
 	}): Promise<SeedDraft> {
 		const runId = input.runId ?? `seed-${Date.now().toString(36)}`;
@@ -322,7 +321,7 @@ export class PiModelClient implements ModelClient {
 
 	public async generateSuggestion(
 		context: SuggestionPromptContext,
-		settings?: ModelRoleSettings,
+		settings?: ModelInvocationSettings,
 	): Promise<{ text: string; usage?: SuggestionUsage }> {
 		return await this.completePrompt(renderSuggestionPrompt(context), undefined, settings);
 	}
@@ -330,7 +329,7 @@ export class PiModelClient implements ModelClient {
 	private async completePrompt(
 		prompt: string,
 		systemPrompt?: string,
-		settings?: ModelRoleSettings,
+		settings?: ModelInvocationSettings,
 	): Promise<{ text: string; usage?: SuggestionUsage }> {
 		const ctx = this.runtime.getContext();
 		if (!ctx?.model) {

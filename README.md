@@ -21,13 +21,13 @@ Instead of naive autocomplete, `pi-prompt-suggester` uses a two-stage approach:
 Implemented end-to-end:
 - async, non-blocking seed generation and reseeding
 - seed persistence in `.pi/suggester/seed.json`
-- session/branch-aware steering + model/thinking overrides via pi custom session entries
+- session/branch-aware steering history via pi custom session entries
 - `agent_end`-driven prompt suggestion generation
 - fast-path `continue` for error completions; aborted turns use model-based suggestion with abort context
 - suggestion display with guarded editor prefill
 - steering capture from the next real user input
 - persistent observability log in `.pi/suggester/logs/events.ndjson`
-- `/suggester status`, `/suggester reseed`, `/suggester clear`
+- `/suggester status`, `/suggester reseed`
 - `/suggester model ...`, `/suggester thinking ...`, `/suggester seed-trace [limit]`
 
 ## Key files
@@ -51,9 +51,8 @@ All controls are under `/suggester`.
 
 - `/suggester` or `/suggester status` — current seed/status, model/thinking overrides, usage summary
 - `/suggester reseed` — trigger async reseed
-- `/suggester clear` — clear shown suggestion
-- `/suggester model [show|set|clear] <seeder|suggester> [provider/model]`
-- `/suggester thinking [show|set|clear] <seeder|suggester> [minimal|low|medium|high|xhigh]`
+- `/suggester model [show|set|clear] <seeder|suggester> [provider/model|session-default]`
+- `/suggester thinking [show|set|clear] <seeder|suggester> [minimal|low|medium|high|xhigh|session-default]`
 - `/suggester seed-trace [limit]` — show latest seeder run trace from persistent logs
 
 ### Config
@@ -68,6 +67,10 @@ Merge order:
 1. base config (repo file)
 2. user override
 3. project override
+
+Notes:
+- `inference.* = session-default` means “use current pi session model/thinking”.
+- `/suggester model ...` and `/suggester thinking ...` edit `.pi/suggester/config.json` then reload.
 
 ### Runtime artifacts
 - seed: `.pi/suggester/seed.json`

@@ -1,3 +1,4 @@
+import type { PromptSuggesterConfig, ThinkingLevel } from "../../config/types.js";
 import type { SuggestionUsage, TurnContext } from "../../domain/suggestion.js";
 import type { SuggestionUsageStats } from "../../domain/state.js";
 import type { Logger } from "../ports/logger.js";
@@ -14,6 +15,7 @@ export interface SuggestionSink {
 }
 
 export interface TurnEndOrchestratorDeps {
+	config: PromptSuggesterConfig;
 	seedStore: SeedStore;
 	stateStore: StateStore;
 	stalenessChecker: StalenessChecker;
@@ -35,6 +37,10 @@ function accumulateUsage(current: SuggestionUsageStats, usage: SuggestionUsage):
 		costTotal: current.costTotal + usage.costTotal,
 		last: usage,
 	};
+}
+
+function toThinking(value: string): ThinkingLevel | undefined {
+	return value === "session-default" ? undefined : (value as ThinkingLevel);
 }
 
 export class TurnEndOrchestrator {
@@ -59,7 +65,13 @@ export class TurnEndOrchestrator {
 			recentAccepted: state.steeringHistory.filter((event) => event.classification !== "changed_course").reverse(),
 			recentChanged: state.steeringHistory.filter((event) => event.classification === "changed_course").reverse(),
 		};
-		const suggestion = await this.deps.suggestionEngine.suggest(turn, seed, steering, state.modelSettings.suggester);
+		const suggestion = await this.deps.suggestionEngine.suggest(turn, seed, steering, {
+			modelRef:
+				this.deps.config.inference.suggesterModel === "session-default"
+					? undefined
+					: this.deps.config.inference.suggesterModel,
+			thinkingLevel: toThinking(this.deps.config.inference.suggesterThinking),
+		});
 		const nextUsage = suggestion.usage ? accumulateUsage(state.suggestionUsage, suggestion.usage) : state.suggestionUsage;
 
 		if (suggestion.kind === "no_suggestion") {

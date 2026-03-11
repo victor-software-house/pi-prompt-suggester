@@ -23,7 +23,6 @@ export class JsonStateStore implements StateStore {
 
 	private normalize(state: RuntimeState): RuntimeState {
 		const usage = state.suggestionUsage ?? INITIAL_RUNTIME_STATE.suggestionUsage;
-		const modelSettings = state.modelSettings ?? INITIAL_RUNTIME_STATE.modelSettings;
 		return {
 			stateVersion: CURRENT_RUNTIME_STATE_VERSION,
 			lastSuggestion: state.lastSuggestion,
@@ -37,28 +36,6 @@ export class JsonStateStore implements StateStore {
 				totalTokens: Number(usage.totalTokens ?? 0),
 				costTotal: Number(usage.costTotal ?? 0),
 				last: usage.last,
-			},
-			modelSettings: {
-				seeder: {
-					modelRef:
-						typeof modelSettings.seeder?.modelRef === "string" && modelSettings.seeder.modelRef.trim().length > 0
-							? modelSettings.seeder.modelRef.trim()
-							: undefined,
-					thinkingLevel:
-						typeof modelSettings.seeder?.thinkingLevel === "string"
-							? modelSettings.seeder.thinkingLevel
-							: undefined,
-				},
-				suggester: {
-					modelRef:
-						typeof modelSettings.suggester?.modelRef === "string" && modelSettings.suggester.modelRef.trim().length > 0
-							? modelSettings.suggester.modelRef.trim()
-							: undefined,
-					thinkingLevel:
-						typeof modelSettings.suggester?.thinkingLevel === "string"
-							? modelSettings.suggester.thinkingLevel
-							: undefined,
-				},
 			},
 		};
 	}

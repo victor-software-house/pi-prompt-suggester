@@ -2,7 +2,7 @@ import type { ExtensionAPI, SessionEntry } from "@mariozechner/pi-coding-agent";
 import type { StateStore } from "../../app/ports/state-store.js";
 import { CURRENT_RUNTIME_STATE_VERSION, INITIAL_RUNTIME_STATE, type RuntimeState } from "../../domain/state.js";
 
-const STATE_CUSTOM_TYPE = "prompt-suggester-state";
+const STATE_CUSTOM_TYPE = "suggester-state";
 
 interface BranchReadableSessionManager {
 	getBranch(): SessionEntry[];
@@ -17,7 +17,6 @@ function extractState(entries: SessionEntry[]): RuntimeState {
 	}
 	if (!latest) return INITIAL_RUNTIME_STATE;
 	const usage = latest.suggestionUsage ?? INITIAL_RUNTIME_STATE.suggestionUsage;
-	const modelSettings = latest.modelSettings ?? INITIAL_RUNTIME_STATE.modelSettings;
 	return {
 		stateVersion: CURRENT_RUNTIME_STATE_VERSION,
 		lastSuggestion: latest.lastSuggestion,
@@ -31,24 +30,6 @@ function extractState(entries: SessionEntry[]): RuntimeState {
 			totalTokens: Number(usage.totalTokens ?? 0),
 			costTotal: Number(usage.costTotal ?? 0),
 			last: usage.last,
-		},
-		modelSettings: {
-			seeder: {
-				modelRef:
-					typeof modelSettings.seeder?.modelRef === "string" && modelSettings.seeder.modelRef.trim().length > 0
-						? modelSettings.seeder.modelRef.trim()
-						: undefined,
-				thinkingLevel:
-					typeof modelSettings.seeder?.thinkingLevel === "string" ? modelSettings.seeder.thinkingLevel : undefined,
-			},
-			suggester: {
-				modelRef:
-					typeof modelSettings.suggester?.modelRef === "string" && modelSettings.suggester.modelRef.trim().length > 0
-						? modelSettings.suggester.modelRef.trim()
-						: undefined,
-				thinkingLevel:
-					typeof modelSettings.suggester?.thinkingLevel === "string" ? modelSettings.suggester.thinkingLevel : undefined,
-			},
 		},
 	};
 }
@@ -71,7 +52,6 @@ export class SessionStateStore implements StateStore {
 			lastSuggestion: state.lastSuggestion,
 			steeringHistory: state.steeringHistory,
 			suggestionUsage: state.suggestionUsage,
-			modelSettings: state.modelSettings,
 		});
 	}
 }

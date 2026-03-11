@@ -1,19 +1,24 @@
+import type { ThinkingLevel } from "../../config/types.js";
 import type { SeedArtifact, SeedDraft, ReseedTrigger } from "../../domain/seed.js";
 import type { SuggestionUsage } from "../../domain/suggestion.js";
-import type { ModelRoleSettings } from "../../domain/state.js";
 import type { SuggestionPromptContext } from "../services/prompt-context-builder.js";
+
+export interface ModelInvocationSettings {
+	modelRef?: string;
+	thinkingLevel?: ThinkingLevel;
+}
 
 export interface ModelClient {
 	generateSeed(input: {
 		reseedTrigger: ReseedTrigger;
 		previousSeed: SeedArtifact | null;
-		settings?: ModelRoleSettings;
+		settings?: ModelInvocationSettings;
 		runId?: string;
 	}): Promise<SeedDraft>;
 
 	generateSuggestion(
 		context: SuggestionPromptContext,
-		settings?: ModelRoleSettings,
+		settings?: ModelInvocationSettings,
 	): Promise<{
 		text: string;
 		usage?: SuggestionUsage;

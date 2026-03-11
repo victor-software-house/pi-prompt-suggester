@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { PromptSuggesterConfig } from "../../config/types.js";
+import type { PromptSuggesterConfig, ThinkingLevel } from "../../config/types.js";
 import {
 	CURRENT_GENERATOR_VERSION,
 	CURRENT_SEED_VERSION,
@@ -12,7 +12,6 @@ import {
 import type { FileHash } from "../ports/file-hash.js";
 import type { Logger } from "../ports/logger.js";
 import type { SeedStore } from "../ports/seed-store.js";
-import type { StateStore } from "../ports/state-store.js";
 import type { ModelClient } from "../ports/model-client.js";
 import type { TaskQueue } from "../ports/task-queue.js";
 import type { VcsClient } from "../ports/vcs-client.js";
@@ -31,10 +30,13 @@ function createRunId(): string {
 	return `seed-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function toThinking(value: string): ThinkingLevel | undefined {
+	return value === "session-default" ? undefined : (value as ThinkingLevel);
+}
+
 export interface ReseedRunnerDeps {
 	config: PromptSuggesterConfig;
 	seedStore: SeedStore;
-	stateStore: StateStore;
 	modelClient: ModelClient;
 	taskQueue: TaskQueue;
 	logger: Logger;
@@ -76,11 +78,17 @@ export class ReseedRunner {
 				});
 
 				try {
-					const [previousSeed, state] = await Promise.all([this.deps.seedStore.load(), this.deps.stateStore.load()]);
+					const previousSeed = await this.deps.seedStore.load();
 					const seedDraft = await this.deps.modelClient.generateSeed({
 						reseedTrigger: current,
 						previousSeed,
-						settings: state.modelSettings.seeder,
+						settings: {
+							modelRef:
+								this.deps.config.inference.seederModel === "session-default"
+									? undefined
+									: this.deps.config.inference.seederModel,
+							thinkingLevel: toThinking(this.deps.config.inference.seederThinking),
+						},
 						runId,
 					});
 					const seed = await this.finalizeSeed(seedDraft, current);

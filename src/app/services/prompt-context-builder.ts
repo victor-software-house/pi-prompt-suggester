@@ -37,9 +37,11 @@ export class PromptContextBuilder {
 			toolSignals: turn.toolSignals
 				.slice(0, this.config.suggestion.maxToolSignals)
 				.map((signal) => truncate(signal, this.config.suggestion.maxToolSignalChars)),
-			touchedFiles: turn.touchedFiles.slice(0, this.config.suggestion.maxToolSignals),
-			unresolvedQuestions: turn.unresolvedQuestions.slice(0, 6),
-			abortContextNote: turn.abortContextNote ? truncate(turn.abortContextNote, 280) : undefined,
+			touchedFiles: turn.touchedFiles.slice(0, this.config.suggestion.maxTouchedFiles),
+			unresolvedQuestions: turn.unresolvedQuestions.slice(0, this.config.suggestion.maxUnresolvedQuestions),
+			abortContextNote: turn.abortContextNote
+				? truncate(turn.abortContextNote, this.config.suggestion.maxAbortContextChars)
+				: undefined,
 			recentAccepted: steering.recentAccepted.slice(0, this.config.steering.maxAcceptedExamples),
 			recentChanged: steering.recentChanged.slice(0, this.config.steering.maxChangedExamples),
 			noSuggestionToken: this.config.suggestion.noSuggestionToken,

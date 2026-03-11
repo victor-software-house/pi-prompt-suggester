@@ -16,6 +16,9 @@
     "maxRecentUserPromptChars": 1000,
     "maxToolSignals": 8,
     "maxToolSignalChars": 240,
+    "maxTouchedFiles": 8,
+    "maxUnresolvedQuestions": 6,
+    "maxAbortContextChars": 280,
     "maxSuggestionChars": 1000,
     "prefillOnlyWhenEditorEmpty": true
   },
@@ -27,5 +30,11 @@
   },
   "logging": {
     "level": "info"
+  },
+  "inference": {
+    "seederModel": "session-default",
+    "suggesterModel": "session-default",
+    "seederThinking": "session-default",
+    "suggesterThinking": "session-default"
   }
 }

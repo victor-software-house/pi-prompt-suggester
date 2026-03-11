@@ -108,7 +108,6 @@ Inspection:
 
 - `/suggester status`
 - `/suggester reseed`
-- `/suggester clear`
-- `/suggester model [show|set|clear] ...`
-- `/suggester thinking [show|set|clear] ...`
+- `/suggester model [show|set|clear] ...` (writes `.pi/suggester/config.json`)
+- `/suggester thinking [show|set|clear] ...` (writes `.pi/suggester/config.json`)
 - `/suggester seed-trace [limit]`

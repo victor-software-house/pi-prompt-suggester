@@ -7,12 +7,11 @@ export function computeConfigFingerprint(config: PromptSuggesterConfig): string 
 	hash.update(
 		JSON.stringify({
 			seed: config.seed,
-			suggestion: {
-				noSuggestionToken: config.suggestion.noSuggestionToken,
-				maxAssistantTurnChars: config.suggestion.maxAssistantTurnChars,
-				maxRecentUserPrompts: config.suggestion.maxRecentUserPrompts,
-			},
+			reseed: config.reseed,
+			suggestion: config.suggestion,
 			steering: config.steering,
+			logging: config.logging,
+			inference: config.inference,
 			versions: {
 				generator: CURRENT_GENERATOR_VERSION,
 				seederPrompt: SEEDER_PROMPT_VERSION,

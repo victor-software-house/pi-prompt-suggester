@@ -12,12 +12,20 @@ function isPositiveNumber(value: unknown): boolean {
 	return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
+function isThinkingLevel(value: unknown): boolean {
+	return ["minimal", "low", "medium", "high", "xhigh", "session-default"].includes(String(value));
+}
+
+function isModelSetting(value: unknown): boolean {
+	return typeof value === "string" && value.trim().length > 0;
+}
+
 export function validateConfig(config: unknown): config is PromptSuggesterConfig {
 	if (!isObject(config)) return false;
 	if (!isObject(config.seed) || !isObject(config.reseed) || !isObject(config.suggestion)) return false;
-	if (!isObject(config.steering) || !isObject(config.logging)) return false;
+	if (!isObject(config.steering) || !isObject(config.logging) || !isObject(config.inference)) return false;
 
-	const { seed, reseed, suggestion, steering, logging } = config;
+	const { seed, reseed, suggestion, steering, logging, inference } = config;
 	if (!Array.isArray(seed.keyFileGlobs) || !seed.keyFileGlobs.every((value) => typeof value === "string")) return false;
 	if (!isPositiveInteger(seed.maxDiffChars)) return false;
 
@@ -32,6 +40,9 @@ export function validateConfig(config: unknown): config is PromptSuggesterConfig
 	if (!isPositiveInteger(suggestion.maxRecentUserPromptChars)) return false;
 	if (!isPositiveInteger(suggestion.maxToolSignals)) return false;
 	if (!isPositiveInteger(suggestion.maxToolSignalChars)) return false;
+	if (!isPositiveInteger(suggestion.maxTouchedFiles)) return false;
+	if (!isPositiveInteger(suggestion.maxUnresolvedQuestions)) return false;
+	if (!isPositiveInteger(suggestion.maxAbortContextChars)) return false;
 	if (!isPositiveInteger(suggestion.maxSuggestionChars)) return false;
 	if (typeof suggestion.prefillOnlyWhenEditorEmpty !== "boolean") return false;
 
@@ -40,6 +51,11 @@ export function validateConfig(config: unknown): config is PromptSuggesterConfig
 	if (typeof acceptedThreshold !== "number" || !isPositiveNumber(acceptedThreshold) || acceptedThreshold > 1) return false;
 	if (!isPositiveInteger(steering.maxAcceptedExamples)) return false;
 	if (!isPositiveInteger(steering.maxChangedExamples)) return false;
+
+	if (!isModelSetting(inference.seederModel)) return false;
+	if (!isModelSetting(inference.suggesterModel)) return false;
+	if (!isThinkingLevel(inference.seederThinking)) return false;
+	if (!isThinkingLevel(inference.suggesterThinking)) return false;
 
 	return ["debug", "info", "warn", "error"].includes(String(logging.level));
 }

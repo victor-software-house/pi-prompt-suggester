@@ -1,7 +1,7 @@
 import type { PromptSuggesterConfig } from "../../config/types.js";
 import type { SeedArtifact } from "../../domain/seed.js";
 import type { SuggestionResult, TurnContext } from "../../domain/suggestion.js";
-import type { ModelRoleSettings } from "../../domain/state.js";
+import type { ModelInvocationSettings } from "../ports/model-client.js";
 import type { SteeringSlice } from "../../domain/steering.js";
 import type { ModelClient } from "../ports/model-client.js";
 import type { PromptContextBuilder } from "./prompt-context-builder.js";
@@ -30,7 +30,7 @@ export class SuggestionEngine {
 		turn: TurnContext,
 		seed: SeedArtifact | null,
 		steering: SteeringSlice,
-		settings?: ModelRoleSettings,
+		settings?: ModelInvocationSettings,
 	): Promise<SuggestionResult> {
 		if (this.deps.config.suggestion.fastPathContinueOnError && turn.status === "error") {
 			return {
