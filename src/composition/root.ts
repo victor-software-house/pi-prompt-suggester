@@ -52,7 +52,7 @@ export async function createAppComposition(pi: ExtensionAPI, cwd: string = proce
 	const vcs = new GitClient(cwd);
 	const fileHash = new Sha256FileHash();
 	const seedStore = new JsonSeedStore(path.join(cwd, ".pi", "suggester", "seed.json"));
-	const stateStore = new SessionStateStore(pi, () => runtimeRef.getContext()?.sessionManager);
+	const stateStore = new SessionStateStore(cwd, () => runtimeRef.getContext()?.sessionManager);
 	const modelClient = new PiModelClient(runtimeRef, logger, cwd);
 	const clock = new SystemClock();
 	const suggestionSink = new PiSuggestionSink({

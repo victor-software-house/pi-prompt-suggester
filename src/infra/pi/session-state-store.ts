@@ -1,20 +1,80 @@
-import type { ExtensionAPI, SessionEntry } from "@mariozechner/pi-coding-agent";
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import type { SessionEntry } from "@mariozechner/pi-coding-agent";
 import type { StateStore } from "../../app/ports/state-store.js";
 import { CURRENT_RUNTIME_STATE_VERSION, INITIAL_RUNTIME_STATE, type RuntimeState, type SuggestionUsageStats } from "../../domain/state.js";
 import type { SuggestionUsage } from "../../domain/suggestion.js";
+import { atomicWriteJson } from "../storage/atomic-write.js";
 
-const STATE_CUSTOM_TYPE = "suggester-state";
-const USAGE_CUSTOM_TYPE = "suggester-usage";
+const LEGACY_STATE_CUSTOM_TYPE = "suggester-state";
+const LEGACY_USAGE_CUSTOM_TYPE = "suggester-usage";
+const STORE_SCHEMA_VERSION = 1;
+const ROOT_STATE_KEY = "__root__";
 
-interface BranchReadableSessionManager {
+interface SessionReadableManager {
 	getBranch(): SessionEntry[];
-	getEntries?(): SessionEntry[];
+	getEntries(): SessionEntry[];
+	getSessionFile(): string | undefined;
+	getSessionId(): string;
+	getLeafId(): string | null;
+	getCwd(): string;
 }
 
 interface UsageLedgerEntry {
 	kind: "suggester" | "seeder";
 	usage: SuggestionUsage;
 	at?: string;
+}
+
+interface PersistedInteractionState {
+	stateVersion: number;
+	lastSuggestion?: RuntimeState["lastSuggestion"];
+	steeringHistory: RuntimeState["steeringHistory"];
+	rejectionHints: RuntimeState["rejectionHints"];
+}
+
+interface PersistedUsageState {
+	schemaVersion: number;
+	suggestionUsage: SuggestionUsageStats;
+	seederUsage: SuggestionUsageStats;
+	updatedAt: string;
+}
+
+interface PersistedSessionMetadata {
+	schemaVersion: number;
+	sessionId: string;
+	sessionFile?: string;
+	cwd: string;
+	ignoreLegacyPiSessionEntries: true;
+	legacyMigration: {
+		performedAt: string;
+		importedLegacyEntries: boolean;
+		legacyStateEntryCount: number;
+		legacyUsageEntryCount: number;
+		note: string;
+	};
+}
+
+interface SessionStorageContext {
+	sessionId: string;
+	sessionFile: string | undefined;
+	storageDir?: string;
+	interactionDir?: string;
+	usageFile?: string;
+	metaFile?: string;
+	lookupKeys: string[];
+	currentKey: string;
+	persistent: boolean;
+}
+
+interface InMemorySessionState {
+	interaction: PersistedInteractionState;
+	usage: SuggestionUsageStatsPair;
+}
+
+interface SuggestionUsageStatsPair {
+	suggester: SuggestionUsageStats;
+	seeder: SuggestionUsageStats;
 }
 
 function emptyUsageStats(): SuggestionUsageStats {
@@ -26,6 +86,33 @@ function emptyUsageStats(): SuggestionUsageStats {
 		cacheWriteTokens: 0,
 		totalTokens: 0,
 		costTotal: 0,
+	};
+}
+
+function emptyUsagePair(): SuggestionUsageStatsPair {
+	return {
+		suggester: emptyUsageStats(),
+		seeder: emptyUsageStats(),
+	};
+}
+
+function cloneUsageStats(stats: SuggestionUsageStats): SuggestionUsageStats {
+	return {
+		calls: stats.calls,
+		inputTokens: stats.inputTokens,
+		outputTokens: stats.outputTokens,
+		cacheReadTokens: stats.cacheReadTokens,
+		cacheWriteTokens: stats.cacheWriteTokens,
+		totalTokens: stats.totalTokens,
+		costTotal: stats.costTotal,
+		last: stats.last ? { ...stats.last } : undefined,
+	};
+}
+
+function cloneUsagePair(pair: SuggestionUsageStatsPair): SuggestionUsageStatsPair {
+	return {
+		suggester: cloneUsageStats(pair.suggester),
+		seeder: cloneUsageStats(pair.seeder),
 	};
 }
 
@@ -79,37 +166,8 @@ function parseUsage(raw: unknown): SuggestionUsage | undefined {
 	};
 }
 
-function extractUsageTotals(entries: SessionEntry[]): {
-	hasLedger: boolean;
-	suggester: SuggestionUsageStats;
-	seeder: SuggestionUsageStats;
-} {
-	let hasLedger = false;
-	let suggester = emptyUsageStats();
-	let seeder = emptyUsageStats();
-
-	for (const entry of entries) {
-		if (entry.type !== "custom" || entry.customType !== USAGE_CUSTOM_TYPE) continue;
-		const data = entry.data as UsageLedgerEntry;
-		const usage = parseUsage(data?.usage);
-		if (!usage) continue;
-		hasLedger = true;
-		if (data.kind === "seeder") seeder = addUsage(seeder, usage);
-		else suggester = addUsage(suggester, usage);
-	}
-
-	return { hasLedger, suggester, seeder };
-}
-
-function extractLatestBranchState(entries: SessionEntry[]): RuntimeState {
-	let latest: RuntimeState | undefined;
-	for (const entry of entries) {
-		if (entry.type === "custom" && entry.customType === STATE_CUSTOM_TYPE) {
-			latest = entry.data as RuntimeState;
-		}
-	}
-	if (!latest) return INITIAL_RUNTIME_STATE;
-
+function normalizeInteractionState(raw: unknown): PersistedInteractionState {
+	const latest = (raw ?? INITIAL_RUNTIME_STATE) as Partial<RuntimeState>;
 	const rejectionHints = Array.isArray(latest.rejectionHints)
 		? latest.rejectionHints
 				.map((entry) => ({
@@ -130,52 +188,263 @@ function extractLatestBranchState(entries: SessionEntry[]): RuntimeState {
 		stateVersion: CURRENT_RUNTIME_STATE_VERSION,
 		lastSuggestion: latest.lastSuggestion,
 		steeringHistory: Array.isArray(latest.steeringHistory) ? latest.steeringHistory : [],
-		suggestionUsage: normalizeUsageStats(latest.suggestionUsage, INITIAL_RUNTIME_STATE.suggestionUsage),
-		seederUsage: normalizeUsageStats(latest.seederUsage, INITIAL_RUNTIME_STATE.seederUsage),
 		rejectionHints,
 	};
 }
 
-export class SessionStateStore implements StateStore {
-	public constructor(
-		private readonly pi: ExtensionAPI,
-		private readonly getSessionManager: () => BranchReadableSessionManager | undefined,
-	) {}
+function toRuntimeState(interaction: PersistedInteractionState, usage: SuggestionUsageStatsPair): RuntimeState {
+	return {
+		stateVersion: CURRENT_RUNTIME_STATE_VERSION,
+		lastSuggestion: interaction.lastSuggestion,
+		steeringHistory: interaction.steeringHistory,
+		suggestionUsage: cloneUsageStats(usage.suggester),
+		seederUsage: cloneUsageStats(usage.seeder),
+		rejectionHints: interaction.rejectionHints,
+	};
+}
 
-	public async load(): Promise<RuntimeState> {
-		const sessionManager = this.getSessionManager();
-		if (!sessionManager) return INITIAL_RUNTIME_STATE;
+function toPersistedInteractionState(state: RuntimeState): PersistedInteractionState {
+	return normalizeInteractionState({
+		stateVersion: CURRENT_RUNTIME_STATE_VERSION,
+		lastSuggestion: state.lastSuggestion,
+		steeringHistory: state.steeringHistory,
+		rejectionHints: state.rejectionHints,
+	});
+}
 
-		const branchEntries = sessionManager.getBranch();
-		const allEntries = sessionManager.getEntries ? sessionManager.getEntries() : branchEntries;
-		const state = extractLatestBranchState(branchEntries);
-		const totals = extractUsageTotals(allEntries);
-		if (!totals.hasLedger) return state;
-		return {
-			...state,
-			suggestionUsage: totals.suggester,
-			seederUsage: totals.seeder,
-		};
+function extractUsageTotals(entries: SessionEntry[]): {
+	hasLedger: boolean;
+	suggester: SuggestionUsageStats;
+	seeder: SuggestionUsageStats;
+	legacyUsageEntryCount: number;
+} {
+	let hasLedger = false;
+	let legacyUsageEntryCount = 0;
+	let suggester = emptyUsageStats();
+	let seeder = emptyUsageStats();
+
+	for (const entry of entries) {
+		if (entry.type !== "custom" || entry.customType !== LEGACY_USAGE_CUSTOM_TYPE) continue;
+		legacyUsageEntryCount += 1;
+		const data = entry.data as UsageLedgerEntry;
+		const usage = parseUsage(data?.usage);
+		if (!usage) continue;
+		hasLedger = true;
+		if (data.kind === "seeder") seeder = addUsage(seeder, usage);
+		else suggester = addUsage(suggester, usage);
 	}
 
-	public async save(state: RuntimeState): Promise<void> {
-		this.pi.appendEntry<RuntimeState>(STATE_CUSTOM_TYPE, {
-			stateVersion: CURRENT_RUNTIME_STATE_VERSION,
-			lastSuggestion: state.lastSuggestion,
-			steeringHistory: state.steeringHistory,
-			suggestionUsage: state.suggestionUsage,
-			seederUsage: state.seederUsage,
-			rejectionHints: state.rejectionHints,
-		});
-	}
+	return { hasLedger, suggester, seeder, legacyUsageEntryCount };
+}
 
-	public async recordUsage(kind: "suggester" | "seeder", usage: SuggestionUsage): Promise<void> {
-		this.pi.appendEntry<UsageLedgerEntry>(USAGE_CUSTOM_TYPE, {
-			kind,
-			usage,
-			at: new Date().toISOString(),
-		});
+function extractLegacyInteractionSnapshots(entries: SessionEntry[]): Map<string, PersistedInteractionState> {
+	const snapshots = new Map<string, PersistedInteractionState>();
+	for (const entry of entries) {
+		if (entry.type !== "custom" || entry.customType !== LEGACY_STATE_CUSTOM_TYPE) continue;
+		snapshots.set(entry.id, normalizeInteractionState(entry.data));
+	}
+	return snapshots;
+}
+
+function normalizeSessionKey(value: string): string {
+	return value.replace(/[^A-Za-z0-9._-]/g, "_");
+}
+
+async function readJson<T>(filePath: string): Promise<T | undefined> {
+	try {
+		return JSON.parse(await fs.readFile(filePath, "utf8")) as T;
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+		throw error;
 	}
 }
 
-export { STATE_CUSTOM_TYPE, USAGE_CUSTOM_TYPE };
+export class SessionStateStore implements StateStore {
+	private readonly ephemeral = new Map<string, InMemorySessionState>();
+	private readonly migrationTasks = new Map<string, Promise<void>>();
+
+	public constructor(
+		private readonly cwd: string,
+		private readonly getSessionManager: () => SessionReadableManager | undefined,
+	) {}
+
+	public async load(): Promise<RuntimeState> {
+		const context = this.getStorageContext();
+		if (!context) return INITIAL_RUNTIME_STATE;
+
+		if (!context.persistent) {
+			const state = this.getOrCreateEphemeralState(context.sessionId);
+			return toRuntimeState(state.interaction, state.usage);
+		}
+
+		await this.ensureMigrated(context);
+		const interaction = await this.loadInteractionState(context);
+		const usage = await this.loadUsageState(context);
+		return toRuntimeState(interaction, usage);
+	}
+
+	public async save(state: RuntimeState): Promise<void> {
+		const context = this.getStorageContext();
+		if (!context) return;
+
+		const interaction = toPersistedInteractionState(state);
+		if (!context.persistent) {
+			const current = this.getOrCreateEphemeralState(context.sessionId);
+			current.interaction = interaction;
+			current.usage = {
+				suggester: cloneUsageStats(state.suggestionUsage),
+				seeder: cloneUsageStats(state.seederUsage),
+			};
+			return;
+		}
+
+		await this.ensureMigrated(context);
+		await fs.mkdir(context.interactionDir!, { recursive: true });
+		await atomicWriteJson(this.stateFilePath(context.interactionDir!, context.currentKey), interaction);
+	}
+
+	public async recordUsage(kind: "suggester" | "seeder", usage: SuggestionUsage): Promise<void> {
+		const context = this.getStorageContext();
+		if (!context) return;
+
+		if (!context.persistent) {
+			const current = this.getOrCreateEphemeralState(context.sessionId);
+			if (kind === "seeder") current.usage.seeder = addUsage(current.usage.seeder, usage);
+			else current.usage.suggester = addUsage(current.usage.suggester, usage);
+			return;
+		}
+
+		await this.ensureMigrated(context);
+		const current = await this.loadUsageState(context);
+		const next = {
+			suggester: kind === "suggester" ? addUsage(current.suggester, usage) : current.suggester,
+			seeder: kind === "seeder" ? addUsage(current.seeder, usage) : current.seeder,
+		};
+		await atomicWriteJson(context.usageFile!, {
+			schemaVersion: STORE_SCHEMA_VERSION,
+			suggestionUsage: next.suggester,
+			seederUsage: next.seeder,
+			updatedAt: new Date().toISOString(),
+		} satisfies PersistedUsageState);
+	}
+
+	private getStorageContext(): SessionStorageContext | undefined {
+		const sessionManager = this.getSessionManager();
+		if (!sessionManager) return undefined;
+
+		const sessionId = normalizeSessionKey(sessionManager.getSessionId());
+		const sessionFile = sessionManager.getSessionFile();
+		const branch = sessionManager.getBranch();
+		const lookupKeys = branch.map((entry: SessionEntry) => entry.id).reverse();
+		lookupKeys.push(ROOT_STATE_KEY);
+		const currentKey = sessionManager.getLeafId() ?? ROOT_STATE_KEY;
+		if (!sessionFile) {
+			return {
+				sessionId,
+				sessionFile,
+				lookupKeys,
+				currentKey,
+				persistent: false,
+			};
+		}
+
+		const storageDir = path.join(this.cwd, ".pi", "suggester", "sessions", sessionId);
+		return {
+			sessionId,
+			sessionFile,
+			storageDir,
+			interactionDir: path.join(storageDir, "interaction"),
+			usageFile: path.join(storageDir, "usage.json"),
+			metaFile: path.join(storageDir, "meta.json"),
+			lookupKeys,
+			currentKey,
+			persistent: true,
+		};
+	}
+
+	private getOrCreateEphemeralState(sessionId: string): InMemorySessionState {
+		const existing = this.ephemeral.get(sessionId);
+		if (existing) return existing;
+		const created: InMemorySessionState = {
+			interaction: normalizeInteractionState(INITIAL_RUNTIME_STATE),
+			usage: emptyUsagePair(),
+		};
+		this.ephemeral.set(sessionId, created);
+		return created;
+	}
+
+	private stateFilePath(interactionDir: string, key: string): string {
+		return path.join(interactionDir, `${normalizeSessionKey(key)}.json`);
+	}
+
+	private async ensureMigrated(context: SessionStorageContext): Promise<void> {
+		const migrationKey = context.storageDir!;
+		const existingTask = this.migrationTasks.get(migrationKey);
+		if (existingTask) {
+			await existingTask;
+			return;
+		}
+
+		const task = this.performMigration(context).finally(() => {
+			this.migrationTasks.delete(migrationKey);
+		});
+		this.migrationTasks.set(migrationKey, task);
+		await task;
+	}
+
+	private async performMigration(context: SessionStorageContext): Promise<void> {
+		await fs.mkdir(context.interactionDir!, { recursive: true });
+		const existingMeta = await readJson<PersistedSessionMetadata>(context.metaFile!);
+		if (existingMeta?.schemaVersion === STORE_SCHEMA_VERSION) return;
+
+		const sessionManager = this.getSessionManager();
+		const allEntries = sessionManager?.getEntries() ?? [];
+		const legacySnapshots = extractLegacyInteractionSnapshots(allEntries);
+		for (const [entryId, interaction] of legacySnapshots.entries()) {
+			await atomicWriteJson(this.stateFilePath(context.interactionDir!, entryId), interaction);
+		}
+
+		const usageTotals = extractUsageTotals(allEntries);
+		await atomicWriteJson(context.usageFile!, {
+			schemaVersion: STORE_SCHEMA_VERSION,
+			suggestionUsage: usageTotals.hasLedger ? usageTotals.suggester : emptyUsageStats(),
+			seederUsage: usageTotals.hasLedger ? usageTotals.seeder : emptyUsageStats(),
+			updatedAt: new Date().toISOString(),
+		} satisfies PersistedUsageState);
+
+		const metadata: PersistedSessionMetadata = {
+			schemaVersion: STORE_SCHEMA_VERSION,
+			sessionId: context.sessionId,
+			sessionFile: context.sessionFile,
+			cwd: sessionManager?.getCwd() ?? this.cwd,
+			ignoreLegacyPiSessionEntries: true,
+			legacyMigration: {
+				performedAt: new Date().toISOString(),
+				importedLegacyEntries: legacySnapshots.size > 0 || usageTotals.legacyUsageEntryCount > 0,
+				legacyStateEntryCount: legacySnapshots.size,
+				legacyUsageEntryCount: usageTotals.legacyUsageEntryCount,
+				note: "Legacy suggester-state/suggester-usage pi session entries were imported once into extension-owned storage and are ignored afterwards.",
+			},
+		};
+		await atomicWriteJson(context.metaFile!, metadata);
+	}
+
+	private async loadInteractionState(context: SessionStorageContext): Promise<PersistedInteractionState> {
+		for (const key of context.lookupKeys) {
+			const state = await readJson<PersistedInteractionState>(this.stateFilePath(context.interactionDir!, key));
+			if (state) return normalizeInteractionState(state);
+		}
+		return normalizeInteractionState(INITIAL_RUNTIME_STATE);
+	}
+
+	private async loadUsageState(context: SessionStorageContext): Promise<SuggestionUsageStatsPair> {
+		const stored = await readJson<PersistedUsageState>(context.usageFile!);
+		if (!stored) return emptyUsagePair();
+		return {
+			suggester: normalizeUsageStats(stored.suggestionUsage, emptyUsageStats()),
+			seeder: normalizeUsageStats(stored.seederUsage, emptyUsageStats()),
+		};
+	}
+}
+
+export { LEGACY_STATE_CUSTOM_TYPE, LEGACY_USAGE_CUSTOM_TYPE };

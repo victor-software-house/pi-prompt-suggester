@@ -21,7 +21,8 @@ Instead of naive autocomplete, `pi-prompt-suggester` uses a two-stage approach:
 Implemented end-to-end:
 - async, non-blocking seed generation and reseeding
 - seed persistence in `.pi/suggester/seed.json`
-- session/branch-aware steering history via pi custom session entries
+- session/branch-aware suggester state in extension-owned files under `.pi/suggester/sessions/` (not Pi session JSONL)
+- one-time legacy migration from old `suggester-state` / `suggester-usage` Pi custom entries, then ignore-old-entries behavior
 - `agent_end`-driven prompt suggestion generation
 - fast-path `continue` for non-success completions (`error` and `aborted`) when enabled
 - ghost-only suggestion display with guarded editor compatibility checks
@@ -124,7 +125,12 @@ Notes:
 
 ### Runtime artifacts
 - seed: `.pi/suggester/seed.json`
+- per-session state: `.pi/suggester/sessions/<session-id>/`
 - logs: `.pi/suggester/logs/events.ndjson`
+
+Legacy note:
+- older versions wrote `suggester-state` / `suggester-usage` custom entries into Pi session JSONL
+- current versions import those legacy entries once into extension-owned storage and ignore the old Pi session entries afterwards
 
 ### Behavior summary
 - Suggestion generation runs on `agent_end`

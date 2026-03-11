@@ -1,8 +1,8 @@
 # Architecture Decisions (Current)
 
 ## 1) Seed is project-global; runtime behavior is session/branch-local
-- **Decision:** store seed in `.pi/suggester/seed.json`, store interaction/runtime state in `suggester-state` custom session entries.
-- **Why:** project intent is repo-wide, while per-branch suggestion/steering traces should stay with the active conversation branch.
+- **Decision:** store seed in `.pi/suggester/seed.json`, and store interaction/runtime state in extension-owned files under `.pi/suggester/sessions/<session-id>/`, not in Pi session JSONL.
+- **Why:** project intent is repo-wide, while per-branch suggestion/steering traces should stay with the active conversation branch without contaminating or coupling to Pi’s official session storage.
 
 ## 2) Suggestion generation runs on `agent_end`
 - **Decision:** trigger suggestions after the full completion, not each internal tool turn.
@@ -41,8 +41,8 @@
 - **Why:** enables post-run debugging/tuning without noisy stdout.
 
 ## 11) Usage accounting is tracked per pipeline and persisted per session
-- **Decision:** persist separate usage counters for suggestion generation and seeding in a session usage ledger, and expose combined totals in `/suggester status`.
-- **Why:** seeding can be expensive and should be visible independently from turn-time suggestion cost, and totals must survive extension reload/session resume.
+- **Decision:** persist separate usage counters for suggestion generation and seeding in extension-owned per-session files, and expose combined totals in `/suggester status`.
+- **Why:** seeding can be expensive and should be visible independently from turn-time suggestion cost, and totals must survive extension reload/session resume without writing extension-private data into Pi session JSONL.
 
 ## 12) Operational command surface remains unified under `/suggester`
 - **Decision:** status/reseed/model/thinking/config/seed-trace are subcommands.
