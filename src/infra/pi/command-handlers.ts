@@ -9,6 +9,7 @@ import { FileConfigLoader } from "../../config/loader.js";
 import type { PromptSuggesterConfig, ThinkingLevel } from "../../config/types.js";
 
 type ModelRole = "seeder" | "suggester";
+type ConfigScope = "project" | "user";
 
 const THINKING_LEVELS: ThinkingLevel[] = ["minimal", "low", "medium", "high", "xhigh"];
 const MODEL_ROLES: ModelRole[] = ["seeder", "suggester"];
@@ -61,6 +62,41 @@ function parsePositiveInt(value: string | undefined, fallback: number): number {
 function asString(value: unknown): string | undefined {
 	if (typeof value !== "string") return undefined;
 	return value;
+}
+
+function parseConfigScope(token: string | undefined): ConfigScope | undefined {
+	if (!token) return undefined;
+	if (token === "project" || token === "user") return token;
+	return undefined;
+}
+
+function parseConfigValue(raw: string): unknown {
+	const trimmed = raw.trim();
+	if (!trimmed) {
+		throw new Error("Missing config value.");
+	}
+
+	try {
+		return JSON.parse(trimmed);
+	} catch {
+		if (trimmed.startsWith("'") && trimmed.endsWith("'") && trimmed.length >= 2) {
+			return trimmed.slice(1, -1);
+		}
+		return trimmed;
+	}
+}
+
+function setPathValue(target: Record<string, unknown>, pathSegments: string[], value: unknown): void {
+	let cursor: Record<string, unknown> = target;
+	for (let index = 0; index < pathSegments.length - 1; index += 1) {
+		const segment = pathSegments[index];
+		const existing = cursor[segment];
+		if (!existing || typeof existing !== "object" || Array.isArray(existing)) {
+			cursor[segment] = {};
+		}
+		cursor = cursor[segment] as Record<string, unknown>;
+	}
+	cursor[pathSegments[pathSegments.length - 1]] = value;
 }
 
 export function renderSeedTrace(events: LoggedEvent[]): string {
@@ -134,6 +170,10 @@ function projectOverridePath(cwd: string): string {
 
 function userOverridePath(homeDir: string = os.homedir()): string {
 	return path.join(homeDir, ".pi", "suggester", "config.json");
+}
+
+function overridePathForScope(cwd: string, scope: ConfigScope): string {
+	return scope === "user" ? userOverridePath() : projectOverridePath(cwd);
 }
 
 async function readJsonIfExists(filePath: string): Promise<Record<string, unknown>> {
@@ -292,6 +332,7 @@ export async function handleConfigCommand(
 				`- effective schemaVersion=${composition.config.schemaVersion}`,
 				`- project override: ${projectOverridePath(ctx.cwd)}`,
 				`- user override: ${userOverridePath()}`,
+				"- set value: /suggester config set [project|user] <path> <json-or-string>",
 				"- reset to defaults: /suggester config reset [project|user|all]",
 			].join("\n"),
 			"info",
@@ -299,20 +340,116 @@ export async function handleConfigCommand(
 		return;
 	}
 
-	if (tokens[0] !== "reset") {
-		ctx.ui.notify("Usage: /suggester config [show|reset [project|user|all]]", "error");
+	if (tokens[0] === "set") {
+		let index = 1;
+		const parsedScope = parseConfigScope(tokens[index]?.toLowerCase());
+		const scope: ConfigScope = parsedScope ?? "project";
+		if (parsedScope) index += 1;
+
+		const configPath = tokens[index]?.trim();
+		if (!configPath) {
+			ctx.ui.notify(
+				"Usage: /suggester config set [project|user] <path> <json-or-string>",
+				"error",
+			);
+			return;
+		}
+		if (configPath === "schemaVersion" || configPath.startsWith("schemaVersion.")) {
+			ctx.ui.notify("schemaVersion is managed by migrations and cannot be set manually.", "error");
+			return;
+		}
+
+		const pathSegments = configPath
+			.split(".")
+			.map((segment) => segment.trim())
+			.filter(Boolean);
+		if (pathSegments.length === 0) {
+			ctx.ui.notify("Config path is invalid.", "error");
+			return;
+		}
+
+		const rawValue = tokens.slice(index + 1).join(" ");
+		let parsedValue: unknown;
+		try {
+			parsedValue = parseConfigValue(rawValue);
+		} catch (error) {
+			ctx.ui.notify((error as Error).message, "error");
+			return;
+		}
+
+		const filePath = overridePathForScope(ctx.cwd, scope);
+		let previousRaw: string | undefined;
+		try {
+			previousRaw = await fs.readFile(filePath, "utf8");
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+				ctx.ui.notify(`Failed to read config override ${filePath}: ${(error as Error).message}`, "error");
+				return;
+			}
+		}
+
+		let current: Record<string, unknown> = {};
+		if (previousRaw !== undefined) {
+			try {
+				const parsed = JSON.parse(previousRaw);
+				if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+					current = parsed as Record<string, unknown>;
+				} else {
+					ctx.ui.notify(`Override config ${filePath} must be a JSON object.`, "error");
+					return;
+				}
+			} catch (error) {
+				ctx.ui.notify(`Failed to parse config override ${filePath}: ${(error as Error).message}`, "error");
+				return;
+			}
+		}
+
+		const next: Record<string, unknown> = JSON.parse(JSON.stringify(current));
+		setPathValue(next, pathSegments, parsedValue);
+
+		try {
+			await writeJson(filePath, next);
+			await refreshCompositionConfig(ctx, composition);
+		} catch (error) {
+			try {
+				if (previousRaw === undefined) {
+					await fs.rm(filePath, { force: true });
+				} else {
+					await fs.mkdir(path.dirname(filePath), { recursive: true });
+					await fs.writeFile(filePath, previousRaw, "utf8");
+				}
+			} catch {
+				// Best-effort rollback only.
+			}
+			ctx.ui.notify(`Failed to apply config change: ${(error as Error).message}`, "error");
+			return;
+		}
+
+		ctx.ui.notify(
+			`suggester config updated (${scope}): ${configPath}=${JSON.stringify(parsedValue)}`,
+			"info",
+		);
 		return;
 	}
 
-	const scope = (tokens[1] ?? "project").toLowerCase();
+	if (tokens[0] !== "reset") {
+		ctx.ui.notify(
+			"Usage: /suggester config [show|set [project|user] <path> <json-or-string>|reset [project|user|all]]",
+			"error",
+		);
+		return;
+	}
+
+	const scopeToken = tokens[1]?.toLowerCase();
+	const singleScope = parseConfigScope(scopeToken);
 	const targets =
-		scope === "all"
+		scopeToken === "all"
 			? [projectOverridePath(ctx.cwd), userOverridePath()]
-			: scope === "user"
-				? [userOverridePath()]
-				: scope === "project"
-					? [projectOverridePath(ctx.cwd)]
-					: undefined;
+			: singleScope
+				? [overridePathForScope(ctx.cwd, singleScope)]
+				: scopeToken
+					? undefined
+					: [projectOverridePath(ctx.cwd)];
 	if (!targets) {
 		ctx.ui.notify("Usage: /suggester config reset [project|user|all]", "error");
 		return;

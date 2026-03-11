@@ -137,7 +137,7 @@ export class PiExtensionAdapter {
 
 		this.pi.registerCommand("suggester", {
 			description:
-				"suggester controls: status | reseed | model [show|set|clear] | thinking [show|set|clear] | config [show|reset] | seed-trace [limit]",
+				"suggester controls: status | reseed | model [show|set|clear] | thinking [show|set|clear] | config [show|set|reset] | seed-trace [limit]",
 			handler: async (args, ctx) => {
 				const trimmed = args.trim();
 				const [subcommand, ...rest] = trimmed.length > 0 ? trimmed.split(/\s+/) : ["status"];
