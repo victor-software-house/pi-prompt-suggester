@@ -71,7 +71,7 @@ After each `agent_end`:
 - if stale: trigger async reseed.
 
 Reseed trigger payload should include:
-- `reason` (e.g. `initial_missing`, `manual`, `key_file_changed`, `post_turn_stale_check`)
+- `reason` (e.g. `initial_missing`, `manual`, `key_file_changed`)
 - `changedFiles[]`
 - optional `gitDiffSummary` / truncated diff excerpts for changed key files
 
@@ -189,7 +189,7 @@ No JSON schema required.
     {"path": "vision.md", "hash": "sha256:...", "whyImportant": "..."}
   ],
   "openQuestions": ["..."],
-  "lastReseedReason": "post_turn_stale_check",
+  "lastReseedReason": "key_file_changed",
   "lastChangedFiles": ["docs/architecture.md"]
 }
 ```
@@ -235,7 +235,7 @@ Checker steps:
 1. Compare `keyFiles[].hash` against current files.
 2. If git available, compute changed files since `sourceCommit`:
    - `git diff --name-only <sourceCommit>...HEAD`
-3. Mark stale if any key file changed or explicit manual request.
+3. Mark stale if any seeder-discovered key file changed or explicit manual request.
 4. Produce reseed trigger payload (`reason`, `changedFiles`, optional diff snippets).
 
 ---

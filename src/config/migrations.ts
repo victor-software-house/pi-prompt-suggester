@@ -1,4 +1,4 @@
-export const CURRENT_CONFIG_SCHEMA_VERSION = 2;
+export const CURRENT_CONFIG_SCHEMA_VERSION = 3;
 
 type ConfigObject = Record<string, unknown>;
 
@@ -21,6 +21,16 @@ function migrateV1ToV2(config: ConfigObject): ConfigObject {
 	if (steering && typeof steering === "object" && !Array.isArray(steering)) {
 		const { maxAcceptedExamples: _removed, ...rest } = steering as ConfigObject & { maxAcceptedExamples?: unknown };
 		next.steering = rest;
+	}
+	return next;
+}
+
+function migrateV2ToV3(config: ConfigObject): ConfigObject {
+	const next: ConfigObject = { ...config, schemaVersion: 3 };
+	const seed = next.seed;
+	if (seed && typeof seed === "object" && !Array.isArray(seed)) {
+		const { keyFileGlobs: _removed, ...rest } = seed as ConfigObject & { keyFileGlobs?: unknown };
+		next.seed = rest;
 	}
 	return next;
 }
@@ -55,6 +65,11 @@ export function migrateOverrideConfig(config: ConfigObject): {
 			case 1:
 				migrated = migrateV1ToV2(migrated);
 				current = 2;
+				changed = true;
+				break;
+			case 2:
+				migrated = migrateV2ToV3(migrated);
+				current = 3;
 				changed = true;
 				break;
 			default:

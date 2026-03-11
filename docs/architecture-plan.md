@@ -150,14 +150,14 @@ This is the backbone for non-blocking freshness.
 ## 3) `StalenessChecker`
 
 Pure service (easy to test):
-- compares current hashes to `seed.keyFiles`
+- compares current hashes to the `seed.keyFiles` discovered by the seeder in the last run
 - optionally uses `VcsClient` for changed files/diff summary
 - returns:
 
 ```ts
 {
   stale: boolean;
-  reason: 'initial_missing' | 'manual' | 'key_file_changed' | 'post_turn_stale_check';
+  reason: 'initial_missing' | 'manual' | 'key_file_changed' | 'config_changed' | 'generator_changed';
   changedFiles: string[];
   gitDiffSummary?: string;
 }
@@ -299,7 +299,6 @@ Optional debug command:
 ```json
 {
   "seed": {
-    "keyFileGlobs": ["README.md", "vision.md", "docs/**/*.md", "src/index.ts"],
     "maxDiffChars": 3000
   },
   "reseed": {

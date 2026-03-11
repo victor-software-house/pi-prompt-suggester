@@ -32,7 +32,6 @@ export function validateConfig(config: unknown): config is PromptSuggesterConfig
 	if (!isObject(config.steering) || !isObject(config.logging) || !isObject(config.feedback) || !isObject(config.inference)) return false;
 
 	const { seed, reseed, suggestion, steering, logging, feedback, inference } = config;
-	if (!Array.isArray(seed.keyFileGlobs) || !seed.keyFileGlobs.every((value) => typeof value === "string")) return false;
 	if (!isPositiveInteger(seed.maxDiffChars)) return false;
 
 	if (typeof reseed.enabled !== "boolean") return false;

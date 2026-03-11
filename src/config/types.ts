@@ -2,7 +2,6 @@ export type ThinkingLevel = "minimal" | "low" | "medium" | "high" | "xhigh";
 export type InferenceDefault = "session-default";
 
 export interface SeedConfig {
-	keyFileGlobs: string[];
 	maxDiffChars: number;
 }
 

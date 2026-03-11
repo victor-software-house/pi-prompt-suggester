@@ -7,7 +7,6 @@ export type ReseedReason =
 	| "initial_missing"
 	| "manual"
 	| "key_file_changed"
-	| "post_turn_stale_check"
 	| "config_changed"
 	| "generator_changed";
 

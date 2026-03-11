@@ -10,7 +10,6 @@ import {
 	type StalenessCheckResult,
 } from "../../domain/seed.js";
 import { computeConfigFingerprint } from "./seed-metadata.js";
-import { matchesAnyGlob } from "./path-globs.js";
 
 export interface StalenessCheckerDeps {
 	config: PromptSuggesterConfig;
@@ -85,19 +84,6 @@ export class StalenessChecker {
 					reason: "key_file_changed",
 					changedFiles: changedKeyFiles,
 					gitDiffSummary: await this.deps.vcs.getDiffSummary(changedKeyFiles, this.deps.config.seed.maxDiffChars),
-				},
-			};
-		}
-
-		const changedFiles = await this.collectChangedFiles(seed);
-		const relevantChangedFiles = changedFiles.filter((file) => matchesAnyGlob(file, this.deps.config.seed.keyFileGlobs));
-		if (relevantChangedFiles.length > 0) {
-			return {
-				stale: true,
-				trigger: {
-					reason: "post_turn_stale_check",
-					changedFiles: relevantChangedFiles,
-					gitDiffSummary: await this.deps.vcs.getDiffSummary(relevantChangedFiles, this.deps.config.seed.maxDiffChars),
 				},
 			};
 		}

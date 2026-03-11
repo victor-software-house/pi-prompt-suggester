@@ -1,7 +1,6 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "seed": {
-    "keyFileGlobs": ["README.md", "vision.md", "docs/**/*.md", "src/index.ts", "package.json"],
     "maxDiffChars": 3000
   },
   "reseed": {
