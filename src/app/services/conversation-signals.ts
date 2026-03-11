@@ -49,8 +49,7 @@ function extractUnresolvedQuestions(text: string): string[] {
 	return text
 		.split(/\n+/)
 		.map((line) => line.trim())
-		.filter((line) => line.endsWith("?"))
-		.slice(0, 6);
+		.filter((line) => line.endsWith("?"));
 }
 
 export function buildTurnContext(params: {
@@ -72,7 +71,6 @@ export function buildTurnContext(params: {
 	const recentUserPrompts = [...params.branchMessages]
 		.reverse()
 		.filter((message) => message.role === "user")
-		.slice(0, 6)
 		.map((message) => textFromContent(message.content))
 		.filter(Boolean);
 	const { toolSignals, touchedFiles } = extractToolSignals(params.messagesFromPrompt);

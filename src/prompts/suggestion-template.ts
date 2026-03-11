@@ -78,7 +78,7 @@ Instructions:
 - Learn from changed examples: avoid repeating rejected phrasing or direction.
 - Prefer specific next actions over generic meta-prompts.
 - You may return a multi-line prompt when it improves clarity.
-- Keep the result under 1000 characters.
+- Keep the result under ${context.maxSuggestionChars} characters.
 - If confidence is low, output exactly ${context.noSuggestionToken}
 - Return plain text only. No explanation. No JSON.`;
 }

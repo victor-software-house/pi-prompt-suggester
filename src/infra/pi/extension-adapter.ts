@@ -37,7 +37,6 @@ function extractRecentUserPrompts(branchMessages: unknown[]): string[] {
 		.filter((message): message is { role: string; content?: unknown } =>
 			typeof message === "object" && message !== null && "role" in message && (message as { role: string }).role === "user",
 		)
-		.slice(0, 6)
 		.map((message) => {
 			if (typeof message.content === "string") return message.content;
 			if (!Array.isArray(message.content)) return "";

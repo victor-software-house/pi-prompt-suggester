@@ -20,6 +20,7 @@ export interface SuggestionPromptContext {
 	recentAccepted: SteeringSlice["recentAccepted"];
 	recentChanged: SteeringSlice["recentChanged"];
 	noSuggestionToken: string;
+	maxSuggestionChars: number;
 }
 
 export class PromptContextBuilder {
@@ -42,6 +43,7 @@ export class PromptContextBuilder {
 			recentAccepted: steering.recentAccepted.slice(0, this.config.steering.maxAcceptedExamples),
 			recentChanged: steering.recentChanged.slice(0, this.config.steering.maxChangedExamples),
 			noSuggestionToken: this.config.suggestion.noSuggestionToken,
+			maxSuggestionChars: this.config.suggestion.maxSuggestionChars,
 		};
 	}
 }

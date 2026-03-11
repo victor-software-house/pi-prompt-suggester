@@ -7,7 +7,6 @@ export interface ReseedConfig {
 	enabled: boolean;
 	checkOnSessionStart: boolean;
 	checkAfterEveryTurn: boolean;
-	maxConcurrentJobs: number;
 }
 
 export interface SuggestionConfig {

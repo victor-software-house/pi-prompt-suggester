@@ -6,8 +6,7 @@
   "reseed": {
     "enabled": true,
     "checkOnSessionStart": true,
-    "checkAfterEveryTurn": true,
-    "maxConcurrentJobs": 1
+    "checkAfterEveryTurn": true
   },
   "suggestion": {
     "noSuggestionToken": "[no suggestion]",
@@ -23,8 +22,8 @@
   "steering": {
     "historyWindow": 20,
     "acceptedThreshold": 0.82,
-    "maxAcceptedExamples": 4,
-    "maxChangedExamples": 6
+    "maxAcceptedExamples": 20,
+    "maxChangedExamples": 20
   },
   "logging": {
     "level": "info"

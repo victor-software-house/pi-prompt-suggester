@@ -24,7 +24,6 @@ export function validateConfig(config: unknown): config is PromptSuggesterConfig
 	if (typeof reseed.enabled !== "boolean") return false;
 	if (typeof reseed.checkOnSessionStart !== "boolean") return false;
 	if (typeof reseed.checkAfterEveryTurn !== "boolean") return false;
-	if (!isPositiveInteger(reseed.maxConcurrentJobs)) return false;
 
 	if (typeof suggestion.noSuggestionToken !== "string") return false;
 	if (typeof suggestion.fastPathContinueOnError !== "boolean") return false;
