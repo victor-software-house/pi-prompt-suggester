@@ -42,17 +42,17 @@ export class PiSuggestionSink implements SuggestionSink {
 		const isMultilineSuggestion = text.includes("\n");
 		const prefixCompatible = !editorText.includes("\n") && text.startsWith(editorText);
 		const canGhostInEditor =
-			!isMultilineSuggestion &&
 			ctx.isIdle() &&
 			!ctx.hasPendingMessages() &&
-			(this.runtime.prefillOnlyWhenEditorEmpty
+			(isMultilineSuggestion
 				? trimmedEditorText.length === 0
-				: trimmedEditorText.length === 0 || prefixCompatible);
+				: this.runtime.prefillOnlyWhenEditorEmpty
+					? trimmedEditorText.length === 0
+					: trimmedEditorText.length === 0 || prefixCompatible);
 
-		ctx.ui.setStatus(
-			"suggester",
-			theme.fg("accent", options?.restore ? "✦ restored prompt suggestion" : "✦ prompt suggestion"),
-		);
+		const statusLabel = options?.restore ? "✦ restored prompt suggestion" : "✦ prompt suggestion";
+		const statusHint = canGhostInEditor ? " · Space accepts" : " · Alt+Enter accepts";
+		ctx.ui.setStatus("suggester", theme.fg("accent", `${statusLabel}${statusHint}`));
 
 		if (canGhostInEditor) {
 			this.runtime.setSuggestion(text);
@@ -112,6 +112,15 @@ export class PiSuggestionSink implements SuggestionSink {
 		this.widgetInputUnsubscribe = ctx.ui.onTerminalInput((data) => {
 			const currentCtx = this.runtime.getContext();
 			if (!currentCtx?.hasUI || !this.widgetSuggestion) return undefined;
+
+			if (matchesKey(data, Key.alt("enter"))) {
+				const accepted = this.widgetSuggestion;
+				currentCtx.ui.setEditorText(accepted);
+				this.runtime.setSuggestion(undefined);
+				this.clearWidget(currentCtx);
+				currentCtx.ui.setStatus("suggester", currentCtx.ui.theme.fg("accent", "✦ prompt suggestion accepted"));
+				return { consume: true };
+			}
 
 			const wrapWidth = this.computeWrapWidth();
 			if (wrapWidth !== this.widgetLastWrapWidth) {
@@ -185,8 +194,8 @@ export class PiSuggestionSink implements SuggestionSink {
 		const shownEnd = Math.min(this.widgetWrappedLines.length, start + visibleLines.length);
 		const hasOverflow = this.widgetWrappedLines.length > viewportLines;
 		const scrollHint = hasOverflow
-			? `(scroll ${shownStart}-${shownEnd}/${this.widgetWrappedLines.length}; Alt+↑/↓, Alt+K/J, PgUp/PgDn, Home/End)`
-			: "(fits in widget; no scrolling needed)";
+			? `(scroll ${shownStart}-${shownEnd}/${this.widgetWrappedLines.length}; Alt+↑/↓, Alt+K/J, PgUp/PgDn, Home/End, Alt+Enter accept)`
+			: "(fits in widget; Alt+Enter accepts)";
 
 		ctx.ui.setWidget(
 			"suggester",

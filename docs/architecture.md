@@ -77,9 +77,9 @@ Behavior:
 
 ## 4) UI behavior
 
-- Single-line suggestions can ghost in editor when safe (idle, no pending messages, editor-empty policy)
+- Suggestions can ghost in editor when safe (idle, no pending messages, editor-empty policy; multiline requires empty editor)
 - Space-to-accept when editor is empty
-- Multiline (and non-compatible) suggestions render below editor as wrapped content with keyboard scrolling
+- Non-compatible cases render below editor as wrapped content with keyboard scrolling and `Alt+Enter` accept
 - Footer lines:
   - path/model/token/context lines
   - wrapped extension status lines (including suggester usage) when content exceeds width

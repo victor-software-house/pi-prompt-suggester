@@ -85,6 +85,7 @@ Notes:
 ### Behavior summary
 - Suggestion generation runs on `agent_end`
 - Non-success turns (`error`, `aborted`) can fast-path to `continue` (configurable)
-- Single-line suggestions are ghosted in editor when safe; multiline suggestions are shown in a wrapped, scrollable below-editor widget
-- Scroll multiline widget with `Alt+↑/↓`, `Alt+K/J`, `PgUp/PgDn`, `Home/End`
+- Suggestions are ghosted in editor when safe (including multiline when editor is empty)
+- Press `Space` on an empty editor to accept the full ghost suggestion
+- Fallback below-editor widget is wrapped + scrollable (`Alt+↑/↓`, `Alt+K/J`, `PgUp/PgDn`, `Home/End`) and `Alt+Enter` accepts it into the editor
 - Footer now wraps extension statuses (including suggester usage/tokens) across multiple lines instead of truncating to one line

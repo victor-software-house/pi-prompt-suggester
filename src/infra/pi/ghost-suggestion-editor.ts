@@ -1,5 +1,5 @@
 import { CustomEditor } from "@mariozechner/pi-coding-agent";
-import { Key, matchesKey, truncateToWidth, visibleWidth } from "@mariozechner/pi-tui";
+import { Key, matchesKey, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@mariozechner/pi-tui";
 
 const GHOST_COLOR = "\x1b[38;5;244m";
 const RESET = "\x1b[0m";
@@ -62,9 +62,11 @@ export class GhostSuggestionEditor extends CustomEditor {
 		if (!match) return lines;
 
 		const cursorCol = visibleWidth(firstContentLine.slice(0, match.index));
+		const lineStartCol = Math.max(0, cursorCol - visibleWidth(ghost.text));
 		const firstSuffixLine = ghost.suffixLines[0] ?? "";
-		const firstLineAvailable = Math.max(0, width - (cursorCol + 1));
-		const firstLineGhost = truncateToWidth(firstSuffixLine, firstLineAvailable, "");
+		const firstLineAvailable = Math.max(1, width - (cursorCol + 1));
+		const firstSuffixWrapped = wrapTextWithAnsi(firstSuffixLine, firstLineAvailable);
+		const firstLineGhost = firstSuffixWrapped[0] ?? "";
 
 		lines[contentLineIndex] = truncateToWidth(
 			firstContentLine.replace(END_CURSOR, (cursor) => `${cursor}${GHOST_COLOR}${firstLineGhost}${RESET}`),
@@ -72,11 +74,16 @@ export class GhostSuggestionEditor extends CustomEditor {
 			"",
 		);
 
-		if (!ghost.multiline) return lines;
-
+		const continuationLines: string[] = [];
+		continuationLines.push(...firstSuffixWrapped.slice(1));
 		for (let index = 1; index < ghost.suffixLines.length; index += 1) {
-			const ghostLine = this.renderGhostLineAtColumn(ghost.suffixLines[index] ?? "", cursorCol, width);
-			const targetIndex = contentLineIndex + index;
+			continuationLines.push(...wrapTextWithAnsi(ghost.suffixLines[index] ?? "", Math.max(1, width - lineStartCol)));
+		}
+		if (continuationLines.length === 0) return lines;
+
+		for (let index = 0; index < continuationLines.length; index += 1) {
+			const ghostLine = this.renderGhostLineAtColumn(continuationLines[index] ?? "", lineStartCol, width);
+			const targetIndex = contentLineIndex + 1 + index;
 			const bottomBorderIndex = lines.length - 1;
 			if (targetIndex < bottomBorderIndex) lines[targetIndex] = ghostLine;
 			else lines.splice(bottomBorderIndex, 0, ghostLine);
