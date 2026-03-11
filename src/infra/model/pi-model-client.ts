@@ -44,6 +44,38 @@ interface SeederHistoryEntry {
 	toolResult?: string;
 }
 
+class SeederRunError extends Error {
+	public constructor(
+		message: string,
+		public readonly usage: SuggestionUsage,
+	) {
+		super(message);
+	}
+}
+
+function createEmptyUsage(): SuggestionUsage {
+	return {
+		inputTokens: 0,
+		outputTokens: 0,
+		cacheReadTokens: 0,
+		cacheWriteTokens: 0,
+		totalTokens: 0,
+		costTotal: 0,
+	};
+}
+
+function accumulateUsage(current: SuggestionUsage, usage: SuggestionUsage | undefined): SuggestionUsage {
+	if (!usage) return current;
+	return {
+		inputTokens: current.inputTokens + usage.inputTokens,
+		outputTokens: current.outputTokens + usage.outputTokens,
+		cacheReadTokens: current.cacheReadTokens + usage.cacheReadTokens,
+		cacheWriteTokens: current.cacheWriteTokens + usage.cacheWriteTokens,
+		totalTokens: current.totalTokens + usage.totalTokens,
+		costTotal: current.costTotal + usage.costTotal,
+	};
+}
+
 function truncate(value: string, maxChars: number): string {
 	if (value.length <= maxChars) return value;
 	return `${value.slice(0, maxChars)}\n...[truncated]`;
@@ -301,11 +333,12 @@ export class PiModelClient implements ModelClient {
 		previousSeed: SeedArtifact | null;
 		settings?: ModelInvocationSettings;
 		runId?: string;
-	}): Promise<SeedDraft> {
+	}): Promise<{ seed: SeedDraft; usage?: SuggestionUsage }> {
 		const runId = input.runId ?? `seed-${Date.now().toString(36)}`;
 		const systemPrompt = renderSeederSystemPrompt();
 		const history: SeederHistoryEntry[] = [];
 		const maxSteps = 16;
+		let usage = createEmptyUsage();
 		this.logger?.info("seeder.run.started", {
 			runId,
 			reason: input.reseedTrigger.reason,
@@ -315,75 +348,88 @@ export class PiModelClient implements ModelClient {
 			maxSteps,
 		});
 
-		for (let step = 1; step <= maxSteps; step += 1) {
-			const prompt = renderSeederUserPrompt({
-				reseedTrigger: input.reseedTrigger,
-				previousSeed: input.previousSeed,
-				cwd: this.cwd,
-				step,
-				maxSteps,
-				history,
-			});
-			const responseText = await this.completePrompt(prompt, systemPrompt, input.settings);
-			const response = parseSeederResponse(responseText.text);
+		try {
+			for (let step = 1; step <= maxSteps; step += 1) {
+				const prompt = renderSeederUserPrompt({
+					reseedTrigger: input.reseedTrigger,
+					previousSeed: input.previousSeed,
+					cwd: this.cwd,
+					step,
+					maxSteps,
+					history,
+				});
+				const responseText = await this.completePrompt(prompt, systemPrompt, input.settings);
+				usage = accumulateUsage(usage, responseText.usage);
+				const response = parseSeederResponse(responseText.text);
 
-			if (response.type === "final") {
-				const draft = coerceSeedDraft(response.seed);
-				if (!draft.projectIntentSummary) throw new Error("Seeder final response missing projectIntentSummary");
-				if (!draft.objectivesSummary) throw new Error("Seeder final response missing objectivesSummary");
-				if (!draft.constraintsSummary) throw new Error("Seeder final response missing constraintsSummary");
-				if (!draft.principlesGuidelinesSummary) throw new Error("Seeder final response missing principlesGuidelinesSummary");
-				if (!draft.implementationStatusSummary) throw new Error("Seeder final response missing implementationStatusSummary");
-				if (draft.keyFiles.length === 0) throw new Error("Seeder final response produced no keyFiles");
-				const validation = validateSeedCoverage(draft);
-				if (validation.ok) {
-					this.logger?.info("seeder.run.completed", {
+				if (response.type === "final") {
+					const draft = coerceSeedDraft(response.seed);
+					if (!draft.projectIntentSummary) throw new Error("Seeder final response missing projectIntentSummary");
+					if (!draft.objectivesSummary) throw new Error("Seeder final response missing objectivesSummary");
+					if (!draft.constraintsSummary) throw new Error("Seeder final response missing constraintsSummary");
+					if (!draft.principlesGuidelinesSummary) throw new Error("Seeder final response missing principlesGuidelinesSummary");
+					if (!draft.implementationStatusSummary) throw new Error("Seeder final response missing implementationStatusSummary");
+					if (draft.keyFiles.length === 0) throw new Error("Seeder final response produced no keyFiles");
+					const validation = validateSeedCoverage(draft);
+					if (validation.ok) {
+						this.logger?.info("seeder.run.completed", {
+							runId,
+							step,
+							keyFiles: draft.keyFiles.map((file) => file.path),
+							categoryFindings: draft.categoryFindings,
+							tokens: usage.totalTokens,
+							cost: usage.costTotal,
+						});
+						return {
+							seed: draft,
+							usage,
+						};
+					}
+					this.logger?.warn("seeder.validation.failed", {
 						runId,
 						step,
-						keyFiles: draft.keyFiles.map((file) => file.path),
-						categoryFindings: draft.categoryFindings,
+						reason: validation.reason,
+						modelResponsePreview: preview(responseText.text),
 					});
-					return draft;
+					history.push({
+						modelResponse: responseText.text,
+						toolResult: `Validation failed: ${validation.reason}. Continue exploring and/or explicitly report not-found categories in categoryFindings.`,
+					});
+					continue;
 				}
-				this.logger?.warn("seeder.validation.failed", {
+
+				this.logger?.info("seeder.tool.requested", {
 					runId,
 					step,
-					reason: validation.reason,
+					tool: response.tool,
+					arguments: response.arguments,
+					reason: response.reason,
 					modelResponsePreview: preview(responseText.text),
+				});
+				const toolResult = await this.executeSeederTool(response.tool, response.arguments ?? {});
+				this.logger?.info("seeder.tool.result", {
+					runId,
+					step,
+					tool: response.tool,
+					toolResultPreview: preview(toolResult, 700),
 				});
 				history.push({
 					modelResponse: responseText.text,
-					toolResult: `Validation failed: ${validation.reason}. Continue exploring and/or explicitly report not-found categories in categoryFindings.`,
+					toolResult,
 				});
-				continue;
 			}
 
-			this.logger?.info("seeder.tool.requested", {
+			this.logger?.error("seeder.run.exhausted", {
 				runId,
-				step,
-				tool: response.tool,
-				arguments: response.arguments,
-				reason: response.reason,
-				modelResponsePreview: preview(responseText.text),
+				maxSteps,
+				tokens: usage.totalTokens,
+				cost: usage.costTotal,
 			});
-			const toolResult = await this.executeSeederTool(response.tool, response.arguments ?? {});
-			this.logger?.info("seeder.tool.result", {
-				runId,
-				step,
-				tool: response.tool,
-				toolResultPreview: preview(toolResult, 700),
-			});
-			history.push({
-				modelResponse: responseText.text,
-				toolResult,
-			});
+			throw new SeederRunError("Seeder exceeded max exploration steps without returning final seed", usage);
+		} catch (error) {
+			if (error instanceof SeederRunError) throw error;
+			throw new SeederRunError((error as Error).message, usage);
 		}
-
-		this.logger?.error("seeder.run.exhausted", {
-			runId,
-			maxSteps,
-		});
-		throw new Error("Seeder exceeded max exploration steps without returning final seed");
 	}
 
 	public async generateSuggestion(

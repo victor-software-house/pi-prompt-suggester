@@ -64,6 +64,14 @@ function asString(value: unknown): string | undefined {
 	return value;
 }
 
+function formatTokens(count: number): string {
+	if (count < 1000) return count.toString();
+	if (count < 10000) return `${(count / 1000).toFixed(1)}k`;
+	if (count < 1000000) return `${Math.round(count / 1000)}k`;
+	if (count < 10000000) return `${(count / 1000000).toFixed(1)}M`;
+	return `${Math.round(count / 1000000)}M`;
+}
+
 function parseConfigScope(token: string | undefined): ConfigScope | undefined {
 	if (!token) return undefined;
 	if (token === "project" || token === "user") return token;
@@ -146,6 +154,12 @@ export function renderStatus(
 		changed: state.steeringHistory.filter((event) => event.classification === "changed_course").length,
 	};
 	const activeModel = modelToRef(ctx?.model);
+	const combinedInput = state.suggestionUsage.inputTokens + state.seederUsage.inputTokens;
+	const combinedOutput = state.suggestionUsage.outputTokens + state.seederUsage.outputTokens;
+	const combinedCacheRead = state.suggestionUsage.cacheReadTokens + state.seederUsage.cacheReadTokens;
+	const combinedCost = state.suggestionUsage.costTotal + state.seederUsage.costTotal;
+	const seededPromptTokens = state.seederUsage.last?.inputTokens ?? 0;
+	const compactUsageLine = `suggester usage: ↑${formatTokens(combinedInput)} ↓${formatTokens(combinedOutput)} R${formatTokens(combinedCacheRead)} $${combinedCost.toFixed(3)} (${state.suggestionUsage.calls} sugg, ${state.seederUsage.calls} seed), seeded prompt: ${seededPromptTokens} tok`;
 
 	return [
 		"Suggester status",
@@ -157,7 +171,7 @@ export function renderStatus(
 		`- config schemaVersion: ${config.schemaVersion}`,
 		`- models (config): seeder=${config.inference.seederModel}, suggester=${config.inference.suggesterModel}`,
 		`- thinking (config): seeder=${config.inference.seederThinking}, suggester=${config.inference.suggesterThinking}`,
-		`- prompt suggester usage: calls=${state.suggestionUsage.calls}, totalTokens=${state.suggestionUsage.totalTokens}, totalCost=$${state.suggestionUsage.costTotal.toFixed(4)}`,
+		`- ${compactUsageLine}`,
 		`- logs: .pi/suggester/logs/events.ndjson (use /suggester seed-trace)`,
 		`- last suggestion: ${state.lastSuggestion?.text ?? "(none)"}`,
 		`- steering history: exact=${steeringSummary.exact}, edited=${steeringSummary.edited}, changed=${steeringSummary.changed}`,

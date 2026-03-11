@@ -20,7 +20,10 @@ export class SessionStartOrchestrator {
 
 	public async handle(): Promise<void> {
 		const state = await this.deps.stateStore.load();
-		await this.deps.suggestionSink.setUsage(state.suggestionUsage);
+		await this.deps.suggestionSink.setUsage({
+			suggester: state.suggestionUsage,
+			seeder: state.seederUsage,
+		});
 		if (state.lastSuggestion) {
 			await this.deps.suggestionSink.showSuggestion(state.lastSuggestion.text, { restore: true });
 		}

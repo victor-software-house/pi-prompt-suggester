@@ -27,6 +27,8 @@ Implemented end-to-end:
 - ghost-only suggestion display with guarded editor compatibility checks
 - steering capture from the next real user input
 - persistent observability log in `.pi/suggester/logs/events.ndjson`
+- separate usage accounting for suggester + seeder model calls (with combined totals in `/suggester status`)
+- session-persistent usage ledger so totals survive reload/resume
 - `/suggester status`, `/suggester reseed`
 - `/suggester model ...`, `/suggester thinking ...`, `/suggester seed-trace [limit]`
 - `/hint-suggest` and `/quote-suggest` for reject+hint regeneration
@@ -85,7 +87,7 @@ Add to `packages` in `~/.pi/agent/settings.json` (global) or `.pi/settings.json`
 ### Main command
 All controls are under `/suggester`.
 
-- `/suggester` or `/suggester status` — current seed/status, model/thinking overrides, usage summary
+- `/suggester` or `/suggester status` — current seed/status, model/thinking overrides, and usage breakdown (suggester/seeder/combined)
 - `/suggester reseed` — trigger async reseed
 - `/suggester model [show|set|clear] <seeder|suggester> [provider/model|session-default]`
 - `/suggester thinking [show|set|clear] <seeder|suggester> [minimal|low|medium|high|xhigh|session-default]`
@@ -128,4 +130,5 @@ Notes:
 - Suggestions are ghosted in editor when safe (including multiline only when editor is empty)
 - Press `Space` on an empty editor to accept the full ghost suggestion
 - If editor state is incompatible, ghost suggestion is hidden (no below-editor fallback widget)
+- `/suggester status` reports separate suggester usage, seeder usage, and combined totals (session-persistent across reload/resume)
 - Footer now wraps extension statuses (including suggester usage/tokens) across multiple lines instead of truncating to one line

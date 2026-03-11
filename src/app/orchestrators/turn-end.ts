@@ -11,7 +11,7 @@ import type { ReseedRunner } from "./reseed-runner.js";
 export interface SuggestionSink {
 	showSuggestion(text: string, options?: { restore?: boolean; generationId?: number }): Promise<void>;
 	clearSuggestion(options?: { generationId?: number }): Promise<void>;
-	setUsage(usage: SuggestionUsageStats): Promise<void>;
+	setUsage(usage: { suggester: SuggestionUsageStats; seeder: SuggestionUsageStats }): Promise<void>;
 }
 
 export interface TurnEndOrchestratorDeps {
@@ -107,6 +107,9 @@ export class TurnEndOrchestrator {
 			},
 		);
 		const nextUsage = suggestion.usage ? accumulateUsage(state.suggestionUsage, suggestion.usage) : state.suggestionUsage;
+		if (suggestion.usage) {
+			await this.deps.stateStore.recordUsage("suggester", suggestion.usage);
+		}
 		const nextHints = consumeHints(state.rejectionHints);
 
 		if (suggestion.kind === "no_suggestion") {
@@ -117,7 +120,7 @@ export class TurnEndOrchestrator {
 				cost: suggestion.usage?.costTotal,
 			});
 			await this.deps.suggestionSink.clearSuggestion({ generationId });
-			await this.deps.suggestionSink.setUsage(nextUsage);
+			await this.deps.suggestionSink.setUsage({ suggester: nextUsage, seeder: state.seederUsage });
 			await this.deps.stateStore.save({
 				...state,
 				lastSuggestion: undefined,
@@ -128,7 +131,7 @@ export class TurnEndOrchestrator {
 		}
 
 		await this.deps.suggestionSink.showSuggestion(suggestion.text, { generationId });
-		await this.deps.suggestionSink.setUsage(nextUsage);
+		await this.deps.suggestionSink.setUsage({ suggester: nextUsage, seeder: state.seederUsage });
 		await this.deps.stateStore.save({
 			...state,
 			lastSuggestion: {
@@ -191,6 +194,9 @@ export class TurnEndOrchestrator {
 
 		const nextHints = consumeHints(boundedHints);
 		const nextUsage = suggestion.usage ? accumulateUsage(state.suggestionUsage, suggestion.usage) : state.suggestionUsage;
+		if (suggestion.usage) {
+			await this.deps.stateStore.recordUsage("suggester", suggestion.usage);
+		}
 		const rejectionSteeringEvent = state.lastSuggestion
 			? {
 					turnId: state.lastSuggestion.turnId,
@@ -207,7 +213,7 @@ export class TurnEndOrchestrator {
 
 		if (suggestion.kind === "no_suggestion") {
 			await this.deps.suggestionSink.clearSuggestion({ generationId: input.generationId });
-			await this.deps.suggestionSink.setUsage(nextUsage);
+			await this.deps.suggestionSink.setUsage({ suggester: nextUsage, seeder: state.seederUsage });
 			await this.deps.stateStore.save({
 				...state,
 				lastSuggestion: undefined,
@@ -224,7 +230,7 @@ export class TurnEndOrchestrator {
 		}
 
 		await this.deps.suggestionSink.showSuggestion(suggestion.text, { generationId: input.generationId });
-		await this.deps.suggestionSink.setUsage(nextUsage);
+		await this.deps.suggestionSink.setUsage({ suggester: nextUsage, seeder: state.seederUsage });
 		await this.deps.stateStore.save({
 			...state,
 			lastSuggestion: {

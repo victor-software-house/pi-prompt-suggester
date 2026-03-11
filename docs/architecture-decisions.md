@@ -40,6 +40,10 @@
 - **Decision:** log seeder and suggestion events to `.pi/suggester/logs/events.ndjson` with truncation/rotation.
 - **Why:** enables post-run debugging/tuning without noisy stdout.
 
-## 11) Operational command surface remains unified under `/suggester`
-- **Decision:** status/reseed/model/thinking/seed-trace are subcommands.
+## 11) Usage accounting is tracked per pipeline and persisted per session
+- **Decision:** persist separate usage counters for suggestion generation and seeding in a session usage ledger, and expose combined totals in `/suggester status`.
+- **Why:** seeding can be expensive and should be visible independently from turn-time suggestion cost, and totals must survive extension reload/session resume.
+
+## 12) Operational command surface remains unified under `/suggester`
+- **Decision:** status/reseed/model/thinking/config/seed-trace are subcommands.
 - **Why:** one discoverable command namespace keeps UX coherent.

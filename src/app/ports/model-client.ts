@@ -14,7 +14,7 @@ export interface ModelClient {
 		previousSeed: SeedArtifact | null;
 		settings?: ModelInvocationSettings;
 		runId?: string;
-	}): Promise<SeedDraft>;
+	}): Promise<{ seed: SeedDraft; usage?: SuggestionUsage }>;
 
 	generateSuggestion(
 		context: SuggestionPromptContext,

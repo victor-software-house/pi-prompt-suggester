@@ -29,8 +29,12 @@ Contains:
 Contains:
 - last shown suggestion
 - steering history (`accepted_exact | accepted_edited | changed_course`)
-- suggester usage/cost counters
 - reject+hint memory (`rejectionHints`)
+
+Usage counters are tracked via a session-persistent usage ledger (`suggester-usage` custom entries):
+- suggester usage/cost counters
+- seeder usage/cost counters
+- combined totals for status/UI display
 
 ---
 
@@ -99,7 +103,7 @@ Logged events include:
 
 Inspection:
 - `/suggester seed-trace [limit]`
-- `/suggester status` includes log path
+- `/suggester status` includes log path plus usage breakdown (suggester/seeder/combined)
 
 ---
 

@@ -81,6 +81,7 @@ export async function createAppComposition(pi: ExtensionAPI, cwd: string = proce
 	const reseedRunner = new ReseedRunner({
 		config,
 		seedStore,
+		stateStore,
 		modelClient,
 		taskQueue,
 		logger,

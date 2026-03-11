@@ -8,14 +8,17 @@ import {
 	SUGGESTION_PROMPT_VERSION,
 	type ReseedTrigger,
 	type SeedArtifact,
+	type SeedDraft,
 } from "../../domain/seed.js";
 import type { FileHash } from "../ports/file-hash.js";
 import type { Logger } from "../ports/logger.js";
 import type { SeedStore } from "../ports/seed-store.js";
+import type { StateStore } from "../ports/state-store.js";
 import type { ModelClient } from "../ports/model-client.js";
 import type { TaskQueue } from "../ports/task-queue.js";
 import type { VcsClient } from "../ports/vcs-client.js";
 import { computeConfigFingerprint } from "../services/seed-metadata.js";
+import type { SuggestionUsage } from "../../domain/suggestion.js";
 
 async function fileExists(filePath: string): Promise<boolean> {
 	try {
@@ -37,6 +40,7 @@ function toThinking(value: string): ThinkingLevel | undefined {
 export interface ReseedRunnerDeps {
 	config: PromptSuggesterConfig;
 	seedStore: SeedStore;
+	stateStore: StateStore;
 	modelClient: ModelClient;
 	taskQueue: TaskQueue;
 	logger: Logger;
@@ -93,7 +97,7 @@ export class ReseedRunner {
 
 			try {
 				const previousSeed = await this.deps.seedStore.load();
-				const seedDraft = await this.deps.modelClient.generateSeed({
+				const seedResult = await this.deps.modelClient.generateSeed({
 					reseedTrigger: current,
 					previousSeed,
 					settings: {
@@ -105,19 +109,28 @@ export class ReseedRunner {
 					},
 					runId,
 				});
-				const seed = await this.finalizeSeed(seedDraft, current);
+				await this.recordSeederUsage(seedResult.usage);
+				const seed = await this.finalizeSeed(seedResult.seed, current);
 				await this.deps.seedStore.save(seed);
 				this.deps.logger.info("reseed.completed", {
 					runId,
 					reason: current.reason,
 					keyFiles: seed.keyFiles.map((file) => file.path),
 					categoryFindings: seed.categoryFindings,
+					tokens: seedResult.usage?.totalTokens,
+					cost: seedResult.usage?.costTotal,
 				});
 			} catch (error) {
+				const usage = this.extractUsageFromError(error);
+				if (usage) {
+					await this.recordSeederUsage(usage);
+				}
 				this.deps.logger.error("reseed.failed", {
 					runId,
 					reason: current.reason,
 					error: (error as Error).message,
+					tokens: usage?.totalTokens,
+					cost: usage?.costTotal,
 				});
 			}
 
@@ -128,12 +141,34 @@ export class ReseedRunner {
 		}
 	}
 
+	private async recordSeederUsage(usage: SuggestionUsage | undefined): Promise<void> {
+		if (!usage) return;
+		await this.deps.stateStore.recordUsage("seeder", usage);
+	}
+
+	private extractUsageFromError(error: unknown): SuggestionUsage | undefined {
+		if (!error || typeof error !== "object") return undefined;
+		const usage = (error as { usage?: SuggestionUsage }).usage;
+		if (!usage) return undefined;
+		if (
+			typeof usage.inputTokens !== "number" ||
+			typeof usage.outputTokens !== "number" ||
+			typeof usage.cacheReadTokens !== "number" ||
+			typeof usage.cacheWriteTokens !== "number" ||
+			typeof usage.totalTokens !== "number" ||
+			typeof usage.costTotal !== "number"
+		) {
+			return undefined;
+		}
+		return usage;
+	}
+
 	public isRunning(): boolean {
 		return this.running;
 	}
 
 	private async finalizeSeed(
-		seedDraft: Awaited<ReturnType<ModelClient["generateSeed"]>>,
+		seedDraft: SeedDraft,
 		trigger: ReseedTrigger,
 	): Promise<SeedArtifact> {
 		const headCommit = await this.deps.vcs.getHeadCommit();

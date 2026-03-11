@@ -10,11 +10,21 @@ export interface UiContextLike {
 	prefillOnlyWhenEditorEmpty: boolean;
 }
 
-function formatUsage(usage: SuggestionUsageStats): string {
-	const lastPromptTokens = usage.last?.inputTokens ?? 0;
-	const lastTokens = usage.last?.totalTokens ?? 0;
-	const lastCost = usage.last?.costTotal ?? 0;
-	return `↳ suggester usage prompt ${lastPromptTokens} tok · last ${lastTokens} tok $${lastCost.toFixed(4)} · total ${usage.totalTokens} tok $${usage.costTotal.toFixed(4)} (${usage.calls} calls)`;
+function formatTokens(count: number): string {
+	if (count < 1000) return count.toString();
+	if (count < 10000) return `${(count / 1000).toFixed(1)}k`;
+	if (count < 1000000) return `${Math.round(count / 1000)}k`;
+	if (count < 10000000) return `${(count / 1000000).toFixed(1)}M`;
+	return `${Math.round(count / 1000000)}M`;
+}
+
+function formatUsage(usage: { suggester: SuggestionUsageStats; seeder: SuggestionUsageStats }): string {
+	const combinedInput = usage.suggester.inputTokens + usage.seeder.inputTokens;
+	const combinedOutput = usage.suggester.outputTokens + usage.seeder.outputTokens;
+	const combinedCacheRead = usage.suggester.cacheReadTokens + usage.seeder.cacheReadTokens;
+	const combinedCost = usage.suggester.costTotal + usage.seeder.costTotal;
+	const seededPromptTokens = usage.seeder.last?.inputTokens ?? 0;
+	return `suggester usage: ↑${formatTokens(combinedInput)} ↓${formatTokens(combinedOutput)} R${formatTokens(combinedCacheRead)} $${combinedCost.toFixed(3)} (${usage.suggester.calls} sugg, ${usage.seeder.calls} seed), seeded prompt: ${seededPromptTokens} tok`;
 }
 
 export class PiSuggestionSink implements SuggestionSink {
@@ -57,10 +67,10 @@ export class PiSuggestionSink implements SuggestionSink {
 		ctx.ui.setStatus("suggester", undefined);
 	}
 
-	public async setUsage(usage: SuggestionUsageStats): Promise<void> {
+	public async setUsage(usage: { suggester: SuggestionUsageStats; seeder: SuggestionUsageStats }): Promise<void> {
 		const ctx = this.runtime.getContext();
 		if (!ctx?.hasUI) return;
-		if (usage.calls <= 0) {
+		if (usage.suggester.calls <= 0 && usage.seeder.calls <= 0) {
 			ctx.ui.setStatus("suggester-usage", undefined);
 			return;
 		}

@@ -22,7 +22,7 @@
 - [x] Ghost-only suggestion editor behavior with guarded compatibility checks
 - [x] Steering capture and classification (`accepted_exact | accepted_edited | changed_course`)
 - [x] Include richer seed context in suggestion prompt
-- [x] Token/cost usage line for suggester
+- [x] Token/cost tracking for suggester + seeder (with combined status totals)
 
 ## Phase 4: Runtime Controls
 - [x] `/suggester model ...` (per-role seeder/suggester overrides)
