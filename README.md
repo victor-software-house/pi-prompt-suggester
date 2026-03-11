@@ -87,3 +87,4 @@ Notes:
 - Non-success turns (`error`, `aborted`) can fast-path to `continue` (configurable)
 - Single-line suggestions are ghosted in editor when safe; multiline suggestions are shown in a wrapped, scrollable below-editor widget
 - Scroll multiline widget with `Alt+↑/↓`, `Alt+K/J`, `PgUp/PgDn`, `Home/End`
+- Footer now wraps extension statuses (including suggester usage/tokens) across multiple lines instead of truncating to one line

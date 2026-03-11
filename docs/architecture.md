@@ -81,8 +81,8 @@ Behavior:
 - Space-to-accept when editor is empty
 - Multiline (and non-compatible) suggestions render below editor as wrapped content with keyboard scrolling
 - Footer lines:
-  - event/status line
-  - suggester usage line (prompt tokens, last-call tokens/cost, cumulative totals)
+  - path/model/token/context lines
+  - wrapped extension status lines (including suggester usage) when content exceeds width
 
 ---
 

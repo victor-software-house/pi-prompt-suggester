@@ -8,6 +8,7 @@ import {
 	handleThinkingCommand,
 	renderStatus,
 } from "./infra/pi/command-handlers.js";
+import { installWrappedFooter } from "./infra/pi/wrapped-footer.js";
 
 async function handleHintBasedRegeneration(
 	ctx: ExtensionCommandContext,
@@ -71,6 +72,7 @@ export default function suggester(pi: ExtensionAPI) {
 			const composition = await setRuntimeContext(ctx);
 			composition.runtimeRef.bumpEpoch();
 			if (ctx.hasUI) {
+				installWrappedFooter(ctx);
 				ctx.ui.setEditorComponent((tui, theme, kb) =>
 					new GhostSuggestionEditor(
 						tui,
