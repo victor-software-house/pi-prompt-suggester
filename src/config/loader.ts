@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { PromptSuggesterConfig } from "./types.js";
 import { validateConfig } from "./schema.js";
 
@@ -54,6 +55,20 @@ async function readRequiredConfig(filePath: string): Promise<PromptSuggesterConf
 	return parsed;
 }
 
+const PACKAGE_DEFAULT_CONFIG_PATH = path.resolve(
+	path.dirname(fileURLToPath(import.meta.url)),
+	"../../config/prompt-suggester.config.json",
+);
+
+async function pathExists(filePath: string): Promise<boolean> {
+	try {
+		await fs.access(filePath);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 export class FileConfigLoader implements ConfigLoader {
 	public constructor(
 		private readonly cwd: string = process.cwd(),
@@ -61,7 +76,8 @@ export class FileConfigLoader implements ConfigLoader {
 	) {}
 
 	public async load(): Promise<PromptSuggesterConfig> {
-		const defaultPath = path.join(this.cwd, "config", "prompt-suggester.config.json");
+		const cwdDefaultPath = path.join(this.cwd, "config", "prompt-suggester.config.json");
+		const defaultPath = (await pathExists(cwdDefaultPath)) ? cwdDefaultPath : PACKAGE_DEFAULT_CONFIG_PATH;
 		const userPath = path.join(this.homeDir, ".pi", "suggester", "config.json");
 		const projectPath = path.join(this.cwd, ".pi", "suggester", "config.json");
 

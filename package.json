@@ -1,10 +1,17 @@
 {
-  "name": "pi-prompt-suggester",
-  "version": "0.1.0",
-  "private": true,
+  "name": "@guwidoe/pi-prompt-suggester",
+  "version": "0.1.1",
   "type": "module",
   "description": "Intent-aware next-prompt suggestion extension for pi",
   "main": "src/index.ts",
+  "keywords": [
+    "pi-package"
+  ],
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
   "scripts": {
     "typecheck": "tsc --noEmit"
   },

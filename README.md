@@ -40,12 +40,47 @@ Implemented end-to-end:
 - [`docs/roadmap.md`](./docs/roadmap.md)
 - [`config/prompt-suggester.config.json`](./config/prompt-suggester.config.json) ← single source of truth for the base config
 
+## Install
+
+### Install from npm (recommended)
+
+Global install (all projects):
+
+```bash
+pi install npm:@guwidoe/pi-prompt-suggester
+```
+
+Project-local install (current repo only):
+
+```bash
+pi install -l npm:@guwidoe/pi-prompt-suggester
+```
+
+Pin a specific version if needed:
+
+```bash
+pi install npm:@guwidoe/pi-prompt-suggester@0.1.1
+```
+
+After install, restart `pi` or run `/reload`.
+
+### Manual settings.json entry
+
+Add to `packages` in `~/.pi/agent/settings.json` (global) or `.pi/settings.json` (project):
+
+```json
+{
+  "packages": [
+    "npm:@guwidoe/pi-prompt-suggester@0.1.1"
+  ]
+}
+```
+
 ## Usage
 
-### Load the extension
-Use one of:
-- project-local extension file in `.pi/extensions/` that re-exports `src/index.ts`
+### Local development usage
 - direct load for testing: `pi -e ./src/index.ts`
+- project-local extension file in `.pi/extensions/` that re-exports `src/index.ts`
 
 ### Main command
 All controls are under `/suggester`.
