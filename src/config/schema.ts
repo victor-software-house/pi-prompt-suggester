@@ -1,38 +1,5 @@
 import type { AutoprompterConfig } from "./types.js";
 
-export const DEFAULT_CONFIG: AutoprompterConfig = {
-	seed: {
-		keyFileGlobs: ["README.md", "vision.md", "docs/**/*.md", "src/index.ts", "package.json"],
-		maxDiffChars: 3000,
-	},
-	reseed: {
-		enabled: true,
-		checkOnSessionStart: true,
-		checkAfterEveryTurn: true,
-		maxConcurrentJobs: 1,
-	},
-	suggestion: {
-		noSuggestionToken: "[no suggestion]",
-		fastPathContinueOnError: true,
-		maxAssistantTurnChars: 4000,
-		maxRecentUserPrompts: 6,
-		maxRecentUserPromptChars: 400,
-		maxToolSignals: 8,
-		maxToolSignalChars: 240,
-		maxSuggestionChars: 1000,
-		prefillOnlyWhenEditorEmpty: true,
-	},
-	steering: {
-		historyWindow: 20,
-		acceptedThreshold: 0.82,
-		maxAcceptedExamples: 4,
-		maxChangedExamples: 6,
-	},
-	logging: {
-		level: "info",
-	},
-};
-
 function isObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
 }

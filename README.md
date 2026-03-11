@@ -37,4 +37,4 @@ Implemented end-to-end:
 - [`docs/meta-prompts.md`](./docs/meta-prompts.md)
 - [`docs/architecture-decisions.md`](./docs/architecture-decisions.md)
 - [`docs/roadmap.md`](./docs/roadmap.md)
-- [`config/autoprompter.config.example.json`](./config/autoprompter.config.example.json)
+- [`config/autoprompter.config.example.json`](./config/autoprompter.config.example.json) ← single source of default config values
