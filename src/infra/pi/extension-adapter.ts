@@ -21,6 +21,7 @@ export interface ExtensionWiring {
 	onClearCommand: (ctx: ExtensionCommandContext) => Promise<void>;
 	onModelCommand: (args: string, ctx: ExtensionCommandContext) => Promise<void>;
 	onThinkingCommand: (args: string, ctx: ExtensionCommandContext) => Promise<void>;
+	onSeedTraceCommand: (args: string, ctx: ExtensionCommandContext) => Promise<void>;
 }
 
 async function handleSessionEvent(
@@ -121,7 +122,7 @@ export class PiExtensionAdapter {
 
 		this.pi.registerCommand("autoprompter", {
 			description:
-				"autoprompter controls: status | reseed | clear | model [show|set|clear] | thinking [show|set|clear]",
+				"autoprompter controls: status | reseed | clear | model [show|set|clear] | thinking [show|set|clear] | seed-trace [limit]",
 			handler: async (args, ctx) => {
 				const trimmed = args.trim();
 				const [subcommand, ...rest] = trimmed.length > 0 ? trimmed.split(/\s+/) : ["status"];
@@ -139,6 +140,10 @@ export class PiExtensionAdapter {
 				}
 				if (subcommand === "thinking") {
 					await this.wiring.onThinkingCommand(rest.join(" "), ctx);
+					return;
+				}
+				if (subcommand === "seed-trace") {
+					await this.wiring.onSeedTraceCommand(rest.join(" "), ctx);
 					return;
 				}
 				await this.wiring.onStatusCommand(ctx);

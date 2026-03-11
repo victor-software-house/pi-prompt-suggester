@@ -8,6 +8,7 @@ export interface ModelClient {
 		reseedTrigger: ReseedTrigger;
 		previousSeed: SeedArtifact | null;
 		settings?: ModelRoleSettings;
+		runId?: string;
 	}): Promise<SeedDraft>;
 
 	generateSuggestion(

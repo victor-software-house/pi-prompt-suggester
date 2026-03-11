@@ -1,4 +1,5 @@
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { EventLog } from "../../app/ports/event-log.js";
 import type { Logger } from "../../app/ports/logger.js";
 
 type Level = "debug" | "info" | "warn" | "error";
@@ -19,6 +20,7 @@ export interface ConsoleLoggerOptions {
 	getContext?: () => ExtensionContext | undefined;
 	statusKey?: string;
 	mirrorToConsoleWhenNoUi?: boolean;
+	eventLog?: EventLog;
 }
 
 export class ConsoleLogger implements Logger {
@@ -50,6 +52,16 @@ export class ConsoleLogger implements Logger {
 	}
 
 	private log(level: Level, message: string, meta?: Record<string, unknown>): void {
+		if (this.options.eventLog) {
+			void this.options.eventLog
+				.append({
+					at: new Date().toISOString(),
+					level,
+					message,
+					meta,
+				})
+				.catch(() => undefined);
+		}
 		if (LEVEL_ORDER[level] < LEVEL_ORDER[this.level]) return;
 		const payload = meta && Object.keys(meta).length > 0 ? ` ${JSON.stringify(meta)}` : "";
 		const line = truncate(`[autoprompter ${level}] ${message}${payload}`, 220);

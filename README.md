@@ -21,12 +21,14 @@ Instead of naive autocomplete, `pi-autoprompter` uses a two-stage approach:
 Implemented end-to-end:
 - async, non-blocking seed generation and reseeding
 - seed persistence in `.pi/autoprompter/seed.json`
-- session/branch-aware steering state via pi custom session entries
+- session/branch-aware steering + model/thinking overrides via pi custom session entries
 - `agent_end`-driven prompt suggestion generation
 - deterministic fast-path `continue` for error/aborted completions
 - suggestion display with guarded editor prefill
 - steering capture from the next real user input
+- persistent observability log in `.pi/autoprompter/logs/events.ndjson`
 - `/autoprompter status`, `/autoprompter reseed`, `/autoprompter clear`
+- `/autoprompter model ...`, `/autoprompter thinking ...`, `/autoprompter seed-trace [limit]`
 
 ## Key files
 

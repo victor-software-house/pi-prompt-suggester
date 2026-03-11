@@ -41,6 +41,11 @@ export class TurnEndOrchestrator {
 	public constructor(private readonly deps: TurnEndOrchestratorDeps) {}
 
 	public async handle(turn: TurnContext, generationId?: number): Promise<void> {
+		this.deps.logger.info("suggestion.turn.received", {
+			turnId: turn.turnId,
+			status: turn.status,
+			generationId,
+		});
 		if (this.deps.checkForStaleness) {
 			const currentSeed = await this.deps.seedStore.load();
 			const staleness = await this.deps.stalenessChecker.check(currentSeed);
@@ -58,6 +63,12 @@ export class TurnEndOrchestrator {
 		const nextUsage = suggestion.usage ? accumulateUsage(state.suggestionUsage, suggestion.usage) : state.suggestionUsage;
 
 		if (suggestion.kind === "no_suggestion") {
+			this.deps.logger.info("suggestion.none", {
+				turnId: turn.turnId,
+				status: turn.status,
+				tokens: suggestion.usage?.totalTokens,
+				cost: suggestion.usage?.costTotal,
+			});
 			await this.deps.suggestionSink.clearSuggestion({ generationId });
 			await this.deps.suggestionSink.setUsage(nextUsage);
 			await this.deps.stateStore.save({
@@ -84,6 +95,7 @@ export class TurnEndOrchestrator {
 			turnId: turn.turnId,
 			tokens: suggestion.usage?.totalTokens,
 			cost: suggestion.usage?.costTotal,
+			preview: suggestion.text.slice(0, 200),
 		});
 	}
 }

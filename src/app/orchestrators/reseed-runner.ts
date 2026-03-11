@@ -27,6 +27,10 @@ async function fileExists(filePath: string): Promise<boolean> {
 	}
 }
 
+function createRunId(): string {
+	return `seed-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export interface ReseedRunnerDeps {
 	config: AutoprompterConfig;
 	seedStore: SeedStore;
@@ -64,7 +68,9 @@ export class ReseedRunner {
 			while (nextTrigger) {
 				const current = nextTrigger;
 				nextTrigger = null;
+				const runId = createRunId();
 				this.deps.logger.info("reseed.started", {
+					runId,
 					reason: current.reason,
 					changedFiles: current.changedFiles,
 				});
@@ -75,15 +81,19 @@ export class ReseedRunner {
 						reseedTrigger: current,
 						previousSeed,
 						settings: state.modelSettings.seeder,
+						runId,
 					});
 					const seed = await this.finalizeSeed(seedDraft, current);
 					await this.deps.seedStore.save(seed);
 					this.deps.logger.info("reseed.completed", {
+						runId,
 						reason: current.reason,
 						keyFiles: seed.keyFiles.map((file) => file.path),
+						categoryFindings: seed.categoryFindings,
 					});
 				} catch (error) {
 					this.deps.logger.error("reseed.failed", {
+						runId,
 						reason: current.reason,
 						error: (error as Error).message,
 					});

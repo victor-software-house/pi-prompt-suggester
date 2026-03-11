@@ -3,6 +3,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import type { AutoprompterConfig } from "../config/types.js";
 import { FileConfigLoader } from "../config/loader.js";
 import { ConsoleLogger } from "../infra/logging/console-logger.js";
+import { NdjsonEventLog } from "../infra/logging/ndjson-event-log.js";
 import { InMemoryTaskQueue } from "../infra/queue/in-memory-task-queue.js";
 import { GitClient } from "../infra/vcs/git-client.js";
 import { Sha256FileHash } from "../infra/hashing/sha256-file-hash.js";
@@ -28,6 +29,7 @@ export interface AppComposition {
 		seedStore: JsonSeedStore;
 		stateStore: SessionStateStore;
 	};
+	eventLog: NdjsonEventLog;
 	orchestrators: {
 		sessionStart: SessionStartOrchestrator;
 		agentEnd: TurnEndOrchestrator;
@@ -39,17 +41,19 @@ export interface AppComposition {
 export async function createAppComposition(pi: ExtensionAPI, cwd: string = process.cwd()): Promise<AppComposition> {
 	const config = await new FileConfigLoader(cwd).load();
 	const runtimeRef = new RuntimeRef();
+	const eventLog = new NdjsonEventLog(path.join(cwd, ".pi", "autoprompter", "logs", "events.ndjson"));
 	const logger = new ConsoleLogger(config.logging.level, {
 		getContext: () => runtimeRef.getContext(),
 		statusKey: "autoprompter-events",
 		mirrorToConsoleWhenNoUi: true,
+		eventLog,
 	});
 	const taskQueue = new InMemoryTaskQueue();
 	const vcs = new GitClient(cwd);
 	const fileHash = new Sha256FileHash();
 	const seedStore = new JsonSeedStore(path.join(cwd, ".pi", "autoprompter", "seed.json"));
 	const stateStore = new SessionStateStore(pi, () => runtimeRef.getContext()?.sessionManager);
-	const modelClient = new PiModelClient(runtimeRef, cwd);
+	const modelClient = new PiModelClient(runtimeRef, logger, cwd);
 	const clock = new SystemClock();
 	const suggestionSink = new PiSuggestionSink({
 		getContext: () => runtimeRef.getContext(),
@@ -123,6 +127,7 @@ export async function createAppComposition(pi: ExtensionAPI, cwd: string = proce
 			seedStore,
 			stateStore,
 		},
+		eventLog,
 		orchestrators: {
 			sessionStart,
 			agentEnd,

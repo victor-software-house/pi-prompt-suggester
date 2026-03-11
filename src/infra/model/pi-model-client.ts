@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import { completeSimple, type Model, type UserMessage } from "@mariozechner/pi-ai";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { ModelClient } from "../../app/ports/model-client.js";
+import type { Logger } from "../../app/ports/logger.js";
 import type { SuggestionPromptContext } from "../../app/services/prompt-context-builder.js";
 import type { SuggestionUsage } from "../../domain/suggestion.js";
 import type { ModelRoleSettings } from "../../domain/state.js";
@@ -47,6 +48,12 @@ interface SeederHistoryEntry {
 function truncate(value: string, maxChars: number): string {
 	if (value.length <= maxChars) return value;
 	return `${value.slice(0, maxChars)}\n...[truncated]`;
+}
+
+function preview(value: string, maxChars: number = 500): string {
+	const normalized = value.replace(/\s+/g, " ").trim();
+	if (normalized.length <= maxChars) return normalized;
+	return `${normalized.slice(0, maxChars)}…`;
 }
 
 function extractText(content: unknown): string {
@@ -215,7 +222,11 @@ function validateSeedCoverage(draft: SeedDraft): { ok: boolean; reason?: string 
 export class PiModelClient implements ModelClient {
 	private readonly cwd: string;
 
-	public constructor(private readonly runtime: RuntimeContextProvider, cwd: string = process.cwd()) {
+	public constructor(
+		private readonly runtime: RuntimeContextProvider,
+		private readonly logger?: Logger,
+		cwd: string = process.cwd(),
+	) {
 		this.cwd = cwd;
 	}
 
@@ -223,10 +234,20 @@ export class PiModelClient implements ModelClient {
 		reseedTrigger: import("../../domain/seed.js").ReseedTrigger;
 		previousSeed: SeedArtifact | null;
 		settings?: ModelRoleSettings;
+		runId?: string;
 	}): Promise<SeedDraft> {
+		const runId = input.runId ?? `seed-${Date.now().toString(36)}`;
 		const systemPrompt = renderSeederSystemPrompt();
 		const history: SeederHistoryEntry[] = [];
 		const maxSteps = 16;
+		this.logger?.info("seeder.run.started", {
+			runId,
+			reason: input.reseedTrigger.reason,
+			changedFiles: input.reseedTrigger.changedFiles,
+			modelRef: input.settings?.modelRef,
+			thinking: input.settings?.thinkingLevel,
+			maxSteps,
+		});
 
 		for (let step = 1; step <= maxSteps; step += 1) {
 			const prompt = renderSeederUserPrompt({
@@ -250,8 +271,20 @@ export class PiModelClient implements ModelClient {
 				if (draft.keyFiles.length === 0) throw new Error("Seeder final response produced no keyFiles");
 				const validation = validateSeedCoverage(draft);
 				if (validation.ok) {
+					this.logger?.info("seeder.run.completed", {
+						runId,
+						step,
+						keyFiles: draft.keyFiles.map((file) => file.path),
+						categoryFindings: draft.categoryFindings,
+					});
 					return draft;
 				}
+				this.logger?.warn("seeder.validation.failed", {
+					runId,
+					step,
+					reason: validation.reason,
+					modelResponsePreview: preview(responseText.text),
+				});
 				history.push({
 					modelResponse: responseText.text,
 					toolResult: `Validation failed: ${validation.reason}. Continue exploring and/or explicitly report not-found categories in categoryFindings.`,
@@ -259,13 +292,31 @@ export class PiModelClient implements ModelClient {
 				continue;
 			}
 
+			this.logger?.info("seeder.tool.requested", {
+				runId,
+				step,
+				tool: response.tool,
+				arguments: response.arguments,
+				reason: response.reason,
+				modelResponsePreview: preview(responseText.text),
+			});
 			const toolResult = await this.executeSeederTool(response.tool, response.arguments ?? {});
+			this.logger?.info("seeder.tool.result", {
+				runId,
+				step,
+				tool: response.tool,
+				toolResultPreview: preview(toolResult, 700),
+			});
 			history.push({
 				modelResponse: responseText.text,
 				toolResult,
 			});
 		}
 
+		this.logger?.error("seeder.run.exhausted", {
+			runId,
+			maxSteps,
+		});
 		throw new Error("Seeder exceeded max exploration steps without returning final seed");
 	}
 
