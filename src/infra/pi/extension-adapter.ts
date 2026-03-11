@@ -19,6 +19,8 @@ export interface ExtensionWiring {
 	onReseedCommand: (ctx: ExtensionCommandContext) => Promise<void>;
 	onStatusCommand: (ctx: ExtensionCommandContext) => Promise<void>;
 	onClearCommand: (ctx: ExtensionCommandContext) => Promise<void>;
+	onModelCommand: (args: string, ctx: ExtensionCommandContext) => Promise<void>;
+	onThinkingCommand: (args: string, ctx: ExtensionCommandContext) => Promise<void>;
 }
 
 async function handleSessionEvent(
@@ -118,15 +120,25 @@ export class PiExtensionAdapter {
 		});
 
 		this.pi.registerCommand("autoprompter", {
-			description: "autoprompter controls: status | reseed | clear",
+			description:
+				"autoprompter controls: status | reseed | clear | model [show|set|clear] | thinking [show|set|clear]",
 			handler: async (args, ctx) => {
-				const subcommand = args.trim().split(/\s+/)[0] || "status";
+				const trimmed = args.trim();
+				const [subcommand, ...rest] = trimmed.length > 0 ? trimmed.split(/\s+/) : ["status"];
 				if (subcommand === "reseed") {
 					await this.wiring.onReseedCommand(ctx);
 					return;
 				}
 				if (subcommand === "clear") {
 					await this.wiring.onClearCommand(ctx);
+					return;
+				}
+				if (subcommand === "model") {
+					await this.wiring.onModelCommand(rest.join(" "), ctx);
+					return;
+				}
+				if (subcommand === "thinking") {
+					await this.wiring.onThinkingCommand(rest.join(" "), ctx);
 					return;
 				}
 				await this.wiring.onStatusCommand(ctx);

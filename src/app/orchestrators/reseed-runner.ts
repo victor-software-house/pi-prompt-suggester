@@ -12,6 +12,7 @@ import {
 import type { FileHash } from "../ports/file-hash.js";
 import type { Logger } from "../ports/logger.js";
 import type { SeedStore } from "../ports/seed-store.js";
+import type { StateStore } from "../ports/state-store.js";
 import type { ModelClient } from "../ports/model-client.js";
 import type { TaskQueue } from "../ports/task-queue.js";
 import type { VcsClient } from "../ports/vcs-client.js";
@@ -29,6 +30,7 @@ async function fileExists(filePath: string): Promise<boolean> {
 export interface ReseedRunnerDeps {
 	config: AutoprompterConfig;
 	seedStore: SeedStore;
+	stateStore: StateStore;
 	modelClient: ModelClient;
 	taskQueue: TaskQueue;
 	logger: Logger;
@@ -68,10 +70,11 @@ export class ReseedRunner {
 				});
 
 				try {
-					const previousSeed = await this.deps.seedStore.load();
+					const [previousSeed, state] = await Promise.all([this.deps.seedStore.load(), this.deps.stateStore.load()]);
 					const seedDraft = await this.deps.modelClient.generateSeed({
 						reseedTrigger: current,
 						previousSeed,
+						settings: state.modelSettings.seeder,
 					});
 					const seed = await this.finalizeSeed(seedDraft, current);
 					await this.deps.seedStore.save(seed);

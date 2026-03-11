@@ -15,11 +15,41 @@ function extractState(entries: SessionEntry[]): RuntimeState {
 			latest = entry.data as RuntimeState;
 		}
 	}
-	if (!latest) return { ...INITIAL_RUNTIME_STATE };
+	if (!latest) return INITIAL_RUNTIME_STATE;
+	const usage = latest.suggestionUsage ?? INITIAL_RUNTIME_STATE.suggestionUsage;
+	const modelSettings = latest.modelSettings ?? INITIAL_RUNTIME_STATE.modelSettings;
 	return {
 		stateVersion: CURRENT_RUNTIME_STATE_VERSION,
 		lastSuggestion: latest.lastSuggestion,
 		steeringHistory: Array.isArray(latest.steeringHistory) ? latest.steeringHistory : [],
+		suggestionUsage: {
+			calls: Number(usage.calls ?? 0),
+			inputTokens: Number(usage.inputTokens ?? 0),
+			outputTokens: Number(usage.outputTokens ?? 0),
+			cacheReadTokens: Number(usage.cacheReadTokens ?? 0),
+			cacheWriteTokens: Number(usage.cacheWriteTokens ?? 0),
+			totalTokens: Number(usage.totalTokens ?? 0),
+			costTotal: Number(usage.costTotal ?? 0),
+			last: usage.last,
+		},
+		modelSettings: {
+			seeder: {
+				modelRef:
+					typeof modelSettings.seeder?.modelRef === "string" && modelSettings.seeder.modelRef.trim().length > 0
+						? modelSettings.seeder.modelRef.trim()
+						: undefined,
+				thinkingLevel:
+					typeof modelSettings.seeder?.thinkingLevel === "string" ? modelSettings.seeder.thinkingLevel : undefined,
+			},
+			suggester: {
+				modelRef:
+					typeof modelSettings.suggester?.modelRef === "string" && modelSettings.suggester.modelRef.trim().length > 0
+						? modelSettings.suggester.modelRef.trim()
+						: undefined,
+				thinkingLevel:
+					typeof modelSettings.suggester?.thinkingLevel === "string" ? modelSettings.suggester.thinkingLevel : undefined,
+			},
+		},
 	};
 }
 
@@ -31,7 +61,7 @@ export class SessionStateStore implements StateStore {
 
 	public async load(): Promise<RuntimeState> {
 		const sessionManager = this.getSessionManager();
-		if (!sessionManager) return { ...INITIAL_RUNTIME_STATE };
+		if (!sessionManager) return INITIAL_RUNTIME_STATE;
 		return extractState(sessionManager.getBranch());
 	}
 
@@ -40,6 +70,8 @@ export class SessionStateStore implements StateStore {
 			stateVersion: CURRENT_RUNTIME_STATE_VERSION,
 			lastSuggestion: state.lastSuggestion,
 			steeringHistory: state.steeringHistory,
+			suggestionUsage: state.suggestionUsage,
+			modelSettings: state.modelSettings,
 		});
 	}
 }

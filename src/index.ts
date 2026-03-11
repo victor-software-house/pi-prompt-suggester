@@ -1,14 +1,64 @@
-import type { ExtensionAPI, ExtensionContext, InputEvent } from "@mariozechner/pi-coding-agent";
+import type { Model } from "@mariozechner/pi-ai";
+import type { ExtensionAPI, ExtensionCommandContext, ExtensionContext, InputEvent } from "@mariozechner/pi-coding-agent";
 import { createAppComposition, type AppComposition } from "./composition/root.js";
+import type { ModelRole, ThinkingLevel } from "./domain/state.js";
 import { PiExtensionAdapter } from "./infra/pi/extension-adapter.js";
 import { GhostSuggestionEditor } from "./infra/pi/ghost-suggestion-editor.js";
 
-function renderStatus(seed: Awaited<ReturnType<AppComposition["stores"]["seedStore"]["load"]>>, state: Awaited<ReturnType<AppComposition["stores"]["stateStore"]["load"]>>): string {
+const THINKING_LEVELS: ThinkingLevel[] = ["minimal", "low", "medium", "high", "xhigh"];
+const MODEL_ROLES: ModelRole[] = ["seeder", "suggester"];
+
+function modelToRef(model: Model<any> | undefined): string {
+	if (!model) return "(none)";
+	return `${model.provider}/${model.id}`;
+}
+
+function parseRole(token: string | undefined): ModelRole | undefined {
+	if (!token) return undefined;
+	return MODEL_ROLES.find((role) => role === token.trim().toLowerCase() as ModelRole);
+}
+
+function resolveModelRef(models: Model<any>[], raw: string): { ok: true; canonicalRef: string } | { ok: false; reason: string } {
+	const value = raw.trim();
+	if (!value) return { ok: false, reason: "Model reference is empty" };
+	if (value.includes("/")) {
+		const [provider, ...rest] = value.split("/");
+		const id = rest.join("/");
+		const match = models.find((model) => model.provider === provider && model.id === id);
+		if (!match) return { ok: false, reason: `Model not found: ${value}` };
+		return { ok: true, canonicalRef: `${match.provider}/${match.id}` };
+	}
+
+	const matches = models.filter((model) => model.id === value);
+	if (matches.length === 0) return { ok: false, reason: `No model with id '${value}' found` };
+	if (matches.length > 1) {
+		return {
+			ok: false,
+			reason: `Model id '${value}' is ambiguous. Use provider/id. Matches: ${matches
+				.slice(0, 6)
+				.map((model) => `${model.provider}/${model.id}`)
+				.join(", ")}`,
+		};
+	}
+	const match = matches[0];
+	return { ok: true, canonicalRef: `${match.provider}/${match.id}` };
+}
+
+function renderStatus(
+	seed: Awaited<ReturnType<AppComposition["stores"]["seedStore"]["load"]>>,
+	state: Awaited<ReturnType<AppComposition["stores"]["stateStore"]["load"]>>,
+	ctx?: ExtensionContext,
+): string {
 	const steeringSummary = {
 		exact: state.steeringHistory.filter((event) => event.classification === "accepted_exact").length,
 		edited: state.steeringHistory.filter((event) => event.classification === "accepted_edited").length,
 		changed: state.steeringHistory.filter((event) => event.classification === "changed_course").length,
 	};
+	const activeModel = modelToRef(ctx?.model);
+	const seederModel = state.modelSettings.seeder.modelRef ?? `default(${activeModel})`;
+	const suggesterModel = state.modelSettings.suggester.modelRef ?? `default(${activeModel})`;
+	const seederThinking = state.modelSettings.seeder.thinkingLevel ?? "default(session)";
+	const suggesterThinking = state.modelSettings.suggester.thinkingLevel ?? "default(session)";
 
 	return [
 		"Autoprompter status",
@@ -16,9 +66,135 @@ function renderStatus(seed: Awaited<ReturnType<AppComposition["stores"]["seedSto
 		`- key files: ${seed?.keyFiles.map((file) => `${file.path} [${file.category}]`).join(", ") || "(none)"}`,
 		`- last reseed reason: ${seed?.lastReseedReason ?? "(none)"}`,
 		`- implementation status: ${seed?.implementationStatusSummary?.slice(0, 140) ?? "(none)"}`,
+		`- models: seeder=${seederModel}, suggester=${suggesterModel}`,
+		`- thinking: seeder=${seederThinking}, suggester=${suggesterThinking}`,
+		`- prompt suggester usage: calls=${state.suggestionUsage.calls}, totalTokens=${state.suggestionUsage.totalTokens}, totalCost=$${state.suggestionUsage.costTotal.toFixed(4)}`,
 		`- last suggestion: ${state.lastSuggestion?.text ?? "(none)"}`,
 		`- steering history: exact=${steeringSummary.exact}, edited=${steeringSummary.edited}, changed=${steeringSummary.changed}`,
 	].join("\n");
+}
+
+async function handleModelCommand(args: string, ctx: ExtensionCommandContext, composition: AppComposition): Promise<void> {
+	const tokens = args.trim().split(/\s+/).filter(Boolean);
+	if (tokens.length === 0 || tokens[0] === "show") {
+		const state = await composition.stores.stateStore.load();
+		const activeModel = modelToRef(ctx.model);
+		const seederModel = state.modelSettings.seeder.modelRef ?? `default(${activeModel})`;
+		const suggesterModel = state.modelSettings.suggester.modelRef ?? `default(${activeModel})`;
+		ctx.ui.notify(`autoprompter models: seeder=${seederModel}, suggester=${suggesterModel}`, "info");
+		return;
+	}
+
+	let action: "set" | "clear" = "set";
+	if (tokens[0] === "set" || tokens[0] === "clear") {
+		action = tokens[0] as "set" | "clear";
+		tokens.shift();
+	}
+
+	const role = parseRole(tokens[0]);
+	if (!role) {
+		ctx.ui.notify("Usage: /autoprompter model [show] | [set] <seeder|suggester> <provider/model|model-id> | clear <seeder|suggester>", "error");
+		return;
+	}
+
+	const state = await composition.stores.stateStore.load();
+	if (action === "clear" || (tokens[1] ?? "").toLowerCase() === "clear") {
+		await composition.stores.stateStore.save({
+			...state,
+			modelSettings: {
+				...state.modelSettings,
+				[role]: {
+					...state.modelSettings[role],
+					modelRef: undefined,
+				},
+			},
+		});
+		ctx.ui.notify(`autoprompter ${role} model override cleared`, "info");
+		return;
+	}
+
+	const rawModelRef = tokens.slice(1).join(" ").trim();
+	if (!rawModelRef) {
+		ctx.ui.notify("Missing model reference. Usage: /autoprompter model <seeder|suggester> <provider/model|model-id>", "error");
+		return;
+	}
+	const resolved = resolveModelRef(ctx.modelRegistry.getAll(), rawModelRef);
+	if (!resolved.ok) {
+		ctx.ui.notify(resolved.reason, "error");
+		return;
+	}
+
+	await composition.stores.stateStore.save({
+		...state,
+		modelSettings: {
+			...state.modelSettings,
+			[role]: {
+				...state.modelSettings[role],
+				modelRef: resolved.canonicalRef,
+			},
+		},
+	});
+	ctx.ui.notify(`autoprompter ${role} model set to ${resolved.canonicalRef}`, "info");
+}
+
+async function handleThinkingCommand(args: string, ctx: ExtensionCommandContext, composition: AppComposition): Promise<void> {
+	const tokens = args.trim().split(/\s+/).filter(Boolean);
+	if (tokens.length === 0 || tokens[0] === "show") {
+		const state = await composition.stores.stateStore.load();
+		const seederThinking = state.modelSettings.seeder.thinkingLevel ?? "default(session)";
+		const suggesterThinking = state.modelSettings.suggester.thinkingLevel ?? "default(session)";
+		ctx.ui.notify(`autoprompter thinking: seeder=${seederThinking}, suggester=${suggesterThinking}`, "info");
+		return;
+	}
+
+	let action: "set" | "clear" = "set";
+	if (tokens[0] === "set" || tokens[0] === "clear") {
+		action = tokens[0] as "set" | "clear";
+		tokens.shift();
+	}
+
+	const role = parseRole(tokens[0]);
+	if (!role) {
+		ctx.ui.notify(
+			"Usage: /autoprompter thinking [show] | [set] <seeder|suggester> <minimal|low|medium|high|xhigh> | clear <seeder|suggester>",
+			"error",
+		);
+		return;
+	}
+
+	const state = await composition.stores.stateStore.load();
+	if (action === "clear" || (tokens[1] ?? "").toLowerCase() === "clear") {
+		await composition.stores.stateStore.save({
+			...state,
+			modelSettings: {
+				...state.modelSettings,
+				[role]: {
+					...state.modelSettings[role],
+					thinkingLevel: undefined,
+				},
+			},
+		});
+		ctx.ui.notify(`autoprompter ${role} thinking override cleared`, "info");
+		return;
+	}
+
+	const rawLevel = tokens[1]?.trim().toLowerCase() as ThinkingLevel | undefined;
+	if (!rawLevel || !THINKING_LEVELS.includes(rawLevel)) {
+		ctx.ui.notify("Thinking level must be one of: minimal, low, medium, high, xhigh", "error");
+		return;
+	}
+
+	await composition.stores.stateStore.save({
+		...state,
+		modelSettings: {
+			...state.modelSettings,
+			[role]: {
+				...state.modelSettings[role],
+				thinkingLevel: rawLevel,
+			},
+		},
+	});
+	ctx.ui.notify(`autoprompter ${role} thinking set to ${rawLevel}`, "info");
 }
 
 export default function autoprompter(pi: ExtensionAPI) {
@@ -89,7 +265,7 @@ export default function autoprompter(pi: ExtensionAPI) {
 			pi.sendMessage(
 				{
 					customType: "autoprompter-status",
-					content: renderStatus(seed, state),
+					content: renderStatus(seed, state, ctx),
 					display: true,
 				},
 				{ triggerTurn: false },
@@ -106,6 +282,14 @@ export default function autoprompter(pi: ExtensionAPI) {
 			ctx.ui.setWidget("autoprompter", undefined, { placement: "belowEditor" });
 			ctx.ui.setStatus("autoprompter", undefined);
 			ctx.ui.notify("autoprompter suggestion cleared", "info");
+		},
+		onModelCommand: async (args, ctx) => {
+			const composition = await setRuntimeContext(ctx);
+			await handleModelCommand(args, ctx, composition);
+		},
+		onThinkingCommand: async (args, ctx) => {
+			const composition = await setRuntimeContext(ctx);
+			await handleThinkingCommand(args, ctx, composition);
 		},
 	});
 

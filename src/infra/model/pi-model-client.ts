@@ -2,10 +2,12 @@ import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
-import { complete, type UserMessage } from "@mariozechner/pi-ai";
+import { completeSimple, type Model, type UserMessage } from "@mariozechner/pi-ai";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { ModelClient } from "../../app/ports/model-client.js";
 import type { SuggestionPromptContext } from "../../app/services/prompt-context-builder.js";
+import type { SuggestionUsage } from "../../domain/suggestion.js";
+import type { ModelRoleSettings } from "../../domain/state.js";
 import {
 	REQUIRED_SEED_CATEGORIES,
 	type SeedArtifact,
@@ -220,6 +222,7 @@ export class PiModelClient implements ModelClient {
 	public async generateSeed(input: {
 		reseedTrigger: import("../../domain/seed.js").ReseedTrigger;
 		previousSeed: SeedArtifact | null;
+		settings?: ModelRoleSettings;
 	}): Promise<SeedDraft> {
 		const systemPrompt = renderSeederSystemPrompt();
 		const history: SeederHistoryEntry[] = [];
@@ -234,8 +237,8 @@ export class PiModelClient implements ModelClient {
 				maxSteps,
 				history,
 			});
-			const responseText = await this.completePrompt(prompt, systemPrompt);
-			const response = parseSeederResponse(responseText);
+			const responseText = await this.completePrompt(prompt, systemPrompt, input.settings);
+			const response = parseSeederResponse(responseText.text);
 
 			if (response.type === "final") {
 				const draft = coerceSeedDraft(response.seed);
@@ -250,7 +253,7 @@ export class PiModelClient implements ModelClient {
 					return draft;
 				}
 				history.push({
-					modelResponse: responseText,
+					modelResponse: responseText.text,
 					toolResult: `Validation failed: ${validation.reason}. Continue exploring and/or explicitly report not-found categories in categoryFindings.`,
 				});
 				continue;
@@ -258,7 +261,7 @@ export class PiModelClient implements ModelClient {
 
 			const toolResult = await this.executeSeederTool(response.tool, response.arguments ?? {});
 			history.push({
-				modelResponse: responseText,
+				modelResponse: responseText.text,
 				toolResult,
 			});
 		}
@@ -266,36 +269,77 @@ export class PiModelClient implements ModelClient {
 		throw new Error("Seeder exceeded max exploration steps without returning final seed");
 	}
 
-	public async generateSuggestion(context: SuggestionPromptContext): Promise<string> {
-		return await this.completePrompt(renderSuggestionPrompt(context));
+	public async generateSuggestion(
+		context: SuggestionPromptContext,
+		settings?: ModelRoleSettings,
+	): Promise<{ text: string; usage?: SuggestionUsage }> {
+		return await this.completePrompt(renderSuggestionPrompt(context), undefined, settings);
 	}
 
-	private async completePrompt(prompt: string, systemPrompt?: string): Promise<string> {
+	private async completePrompt(
+		prompt: string,
+		systemPrompt?: string,
+		settings?: ModelRoleSettings,
+	): Promise<{ text: string; usage?: SuggestionUsage }> {
 		const ctx = this.runtime.getContext();
 		if (!ctx?.model) {
 			throw new Error("No active model available for autoprompter");
 		}
 
-		const apiKey = await ctx.modelRegistry.getApiKey(ctx.model);
+		const model = this.resolveModelForCall(ctx.model, settings?.modelRef, ctx.modelRegistry.getAll());
+		const apiKey = await ctx.modelRegistry.getApiKey(model);
 		const userMessage: UserMessage = {
 			role: "user",
 			content: [{ type: "text", text: prompt }],
 			timestamp: Date.now(),
 		};
 
-		const response = await complete(
-			ctx.model,
+		const response = await completeSimple(
+			model,
 			{
 				systemPrompt:
 					systemPrompt ??
 					"You are the internal model used by pi-autoprompter. Follow the user prompt exactly and return only the requested format.",
 				messages: [userMessage],
 			},
-			{ apiKey },
+			{
+				apiKey,
+				reasoning: settings?.thinkingLevel,
+			},
 		);
 		const text = extractText(response.content);
 		if (!text) throw new Error("Model returned empty text");
-		return text;
+		return {
+			text,
+			usage: {
+				inputTokens: Number(response.usage?.input ?? 0),
+				outputTokens: Number(response.usage?.output ?? 0),
+				cacheReadTokens: Number(response.usage?.cacheRead ?? 0),
+				cacheWriteTokens: Number(response.usage?.cacheWrite ?? 0),
+				totalTokens: Number(response.usage?.totalTokens ?? 0),
+				costTotal: Number(response.usage?.cost?.total ?? 0),
+			},
+		};
+	}
+
+	private resolveModelForCall(currentModel: Model<any>, modelRef: string | undefined, allModels: Model<any>[]): Model<any> {
+		const normalized = (modelRef ?? "").trim();
+		if (!normalized) return currentModel;
+		if (normalized.includes("/")) {
+			const [provider, ...rest] = normalized.split("/");
+			const id = rest.join("/");
+			const exact = allModels.find((entry) => entry.provider === provider && entry.id === id);
+			if (exact) return exact;
+			throw new Error(`Configured autoprompter model not found: ${normalized}`);
+		}
+		const candidates = allModels.filter((entry) => entry.id === normalized);
+		if (candidates.length === 1) return candidates[0];
+		if (candidates.length > 1) {
+			throw new Error(
+				`Configured autoprompter model '${normalized}' is ambiguous. Use provider/id, e.g. ${candidates[0].provider}/${candidates[0].id}`,
+			);
+		}
+		throw new Error(`Configured autoprompter model not found: ${normalized}`);
 	}
 
 	private async executeSeederTool(tool: SeederToolName, args: Record<string, unknown>): Promise<string> {

@@ -1,4 +1,5 @@
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { SuggestionUsageStats } from "../../domain/state.js";
 import type { SuggestionSink } from "../../app/orchestrators/turn-end.js";
 
 export interface UiContextLike {
@@ -7,6 +8,13 @@ export interface UiContextLike {
 	getSuggestion(): string | undefined;
 	setSuggestion(text: string | undefined): void;
 	prefillOnlyWhenEditorEmpty: boolean;
+}
+
+function formatUsage(usage: SuggestionUsageStats): string {
+	const lastPromptTokens = usage.last?.inputTokens ?? 0;
+	const lastTokens = usage.last?.totalTokens ?? 0;
+	const lastCost = usage.last?.costTotal ?? 0;
+	return `↳ autoprompter usage prompt ${lastPromptTokens} tok · last ${lastTokens} tok $${lastCost.toFixed(4)} · total ${usage.totalTokens} tok $${usage.costTotal.toFixed(4)} (${usage.calls} calls)`;
 }
 
 export class PiSuggestionSink implements SuggestionSink {
@@ -60,5 +68,15 @@ export class PiSuggestionSink implements SuggestionSink {
 		if (!ctx?.hasUI) return;
 		ctx.ui.setWidget("autoprompter", undefined);
 		ctx.ui.setStatus("autoprompter", undefined);
+	}
+
+	public async setUsage(usage: SuggestionUsageStats): Promise<void> {
+		const ctx = this.runtime.getContext();
+		if (!ctx?.hasUI) return;
+		if (usage.calls <= 0) {
+			ctx.ui.setStatus("autoprompter-usage", undefined);
+			return;
+		}
+		ctx.ui.setStatus("autoprompter-usage", ctx.ui.theme.fg("dim", formatUsage(usage)));
 	}
 }
