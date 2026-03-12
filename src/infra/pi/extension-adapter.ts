@@ -21,10 +21,9 @@ export interface ExtensionWiring {
 	onModelCommand: (args: string, ctx: ExtensionCommandContext) => Promise<void>;
 	onThinkingCommand: (args: string, ctx: ExtensionCommandContext) => Promise<void>;
 	onConfigCommand: (args: string, ctx: ExtensionCommandContext) => Promise<void>;
+	onInstructionCommand: (args: string, ctx: ExtensionCommandContext) => Promise<void>;
 	onSettingsUiCommand: (ctx: ExtensionCommandContext) => Promise<void>;
 	onSeedTraceCommand: (args: string, ctx: ExtensionCommandContext) => Promise<void>;
-	onHintSuggestCommand: (ctx: ExtensionCommandContext) => Promise<void>;
-	onQuoteSuggestCommand: (ctx: ExtensionCommandContext) => Promise<void>;
 }
 
 async function handleSessionEvent(
@@ -110,8 +109,6 @@ export class PiExtensionAdapter {
 				return;
 			}
 
-			// If no assistant message was emitted for this agent_end, it is typically an abort.
-			// Emit explicit aborted context so the suggestion engine can produce an informed next suggestion.
 			if (event.messages.length === 0) {
 				await this.wiring.onAgentEnd(buildAbortedFallbackTurn(sourceLeafId, branchMessages), ctx);
 			}
@@ -120,20 +117,6 @@ export class PiExtensionAdapter {
 		this.pi.on("input", async (event: InputEvent, ctx) => {
 			await this.wiring.onUserSubmit(event, ctx);
 			return { action: "continue" };
-		});
-
-		this.pi.registerCommand("hint-suggest", {
-			description: "Reject current suggestion, provide a hint, regenerate",
-			handler: async (_args, ctx) => {
-				await this.wiring.onHintSuggestCommand(ctx);
-			},
-		});
-
-		this.pi.registerCommand("quote-suggest", {
-			description: "Reject current suggestion with hint and include rejected text",
-			handler: async (_args, ctx) => {
-				await this.wiring.onQuoteSuggestCommand(ctx);
-			},
 		});
 
 		this.pi.registerCommand("suggesterSettings", {
@@ -145,7 +128,7 @@ export class PiExtensionAdapter {
 
 		this.pi.registerCommand("suggester", {
 			description:
-				"suggester controls: status | reseed | model [show|set|clear] | thinking [show|set|clear] | config [show|set|reset] | seed-trace [limit]",
+				"suggester controls: status | reseed | model [show|set|clear] | thinking [show|set|clear] | instruction [show|set|clear] | config [show|set|reset] | seed-trace [limit]",
 			handler: async (args, ctx) => {
 				const trimmed = args.trim();
 				const [subcommand, ...rest] = trimmed.length > 0 ? trimmed.split(/\s+/) : ["status"];
@@ -163,6 +146,10 @@ export class PiExtensionAdapter {
 				}
 				if (subcommand === "config") {
 					await this.wiring.onConfigCommand(rest.join(" "), ctx);
+					return;
+				}
+				if (subcommand === "instruction") {
+					await this.wiring.onInstructionCommand(rest.join(" "), ctx);
 					return;
 				}
 				if (subcommand === "seed-trace") {

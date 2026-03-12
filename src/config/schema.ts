@@ -1,6 +1,5 @@
 import { CURRENT_CONFIG_SCHEMA_VERSION } from "./migrations.js";
 import type {
-	FeedbackConfig,
 	InferenceConfig,
 	LoggingConfig,
 	PromptSuggesterConfig,
@@ -69,6 +68,7 @@ const reseedValidators: ValidatorMap<ReseedConfig> = {
 
 const suggestionValidators: ValidatorMap<SuggestionConfig> = {
 	noSuggestionToken: (value) => typeof value === "string",
+	customInstruction: (value) => typeof value === "string",
 	fastPathContinueOnError: isBoolean,
 	maxAssistantTurnChars: isPositiveInteger,
 	maxRecentUserPrompts: isPositiveInteger,
@@ -90,12 +90,6 @@ const steeringValidators: ValidatorMap<SteeringConfig> = {
 
 const loggingValidators: ValidatorMap<LoggingConfig> = {
 	level: isLoggingLevel,
-};
-
-const feedbackValidators: ValidatorMap<FeedbackConfig> = {
-	maxStoredHints: isPositiveInteger,
-	hintLifetimeSuggestions: isPositiveInteger,
-	maxHintedSuggestionChars: isPositiveInteger,
 };
 
 const inferenceValidators: ValidatorMap<InferenceConfig> = {
@@ -178,7 +172,6 @@ export function normalizeConfig(
 	const suggestion = normalizeSection(source?.suggestion, defaults.suggestion, suggestionValidators, true);
 	const steering = normalizeSection(source?.steering, defaults.steering, steeringValidators, true);
 	const logging = normalizeSection(source?.logging, defaults.logging, loggingValidators, true);
-	const feedback = normalizeSection(source?.feedback, defaults.feedback, feedbackValidators, true);
 	const inference = normalizeSection(source?.inference, defaults.inference, inferenceValidators, true);
 
 	changed =
@@ -188,7 +181,6 @@ export function normalizeConfig(
 		suggestion.changed ||
 		steering.changed ||
 		logging.changed ||
-		feedback.changed ||
 		inference.changed;
 
 	return {
@@ -199,7 +191,6 @@ export function normalizeConfig(
 			suggestion: suggestion.value as SuggestionConfig,
 			steering: steering.value as SteeringConfig,
 			logging: logging.value as LoggingConfig,
-			feedback: feedback.value as FeedbackConfig,
 			inference: inference.value as InferenceConfig,
 		},
 		changed,
@@ -221,7 +212,6 @@ export function normalizeOverrideConfig(
 	const suggestion = normalizeSection(source?.suggestion, defaults.suggestion, suggestionValidators, false);
 	const steering = normalizeSection(source?.steering, defaults.steering, steeringValidators, false);
 	const logging = normalizeSection(source?.logging, defaults.logging, loggingValidators, false);
-	const feedback = normalizeSection(source?.feedback, defaults.feedback, feedbackValidators, false);
 	const inference = normalizeSection(source?.inference, defaults.inference, inferenceValidators, false);
 
 	changed =
@@ -231,7 +221,6 @@ export function normalizeOverrideConfig(
 		suggestion.changed ||
 		steering.changed ||
 		logging.changed ||
-		feedback.changed ||
 		inference.changed;
 
 	const normalized: Record<string, unknown> = {
@@ -242,7 +231,6 @@ export function normalizeOverrideConfig(
 	if (suggestion.hasAny) normalized.suggestion = suggestion.value;
 	if (steering.hasAny) normalized.steering = steering.value;
 	if (logging.hasAny) normalized.logging = logging.value;
-	if (feedback.hasAny) normalized.feedback = feedback.value;
 	if (inference.hasAny) normalized.inference = inference.value;
 
 	return {
@@ -255,9 +243,9 @@ export function validateConfig(config: unknown): config is PromptSuggesterConfig
 	if (!isObject(config)) return false;
 	if (!isSchemaVersion(config.schemaVersion)) return false;
 	if (!isObject(config.seed) || !isObject(config.reseed) || !isObject(config.suggestion)) return false;
-	if (!isObject(config.steering) || !isObject(config.logging) || !isObject(config.feedback) || !isObject(config.inference)) return false;
+	if (!isObject(config.steering) || !isObject(config.logging) || !isObject(config.inference)) return false;
 
-	const { seed, reseed, suggestion, steering, logging, feedback, inference } = config;
+	const { seed, reseed, suggestion, steering, logging, inference } = config;
 	if (!isPositiveInteger(seed.maxDiffChars)) return false;
 
 	if (!isBoolean(reseed.enabled)) return false;
@@ -266,6 +254,7 @@ export function validateConfig(config: unknown): config is PromptSuggesterConfig
 	if (!isNonNegativeInteger(reseed.turnCheckInterval)) return false;
 
 	if (typeof suggestion.noSuggestionToken !== "string") return false;
+	if (typeof suggestion.customInstruction !== "string") return false;
 	if (!isBoolean(suggestion.fastPathContinueOnError)) return false;
 	if (!isPositiveInteger(suggestion.maxAssistantTurnChars)) return false;
 	if (!isPositiveInteger(suggestion.maxRecentUserPrompts)) return false;
@@ -282,10 +271,6 @@ export function validateConfig(config: unknown): config is PromptSuggesterConfig
 	const acceptedThreshold = steering.acceptedThreshold;
 	if (typeof acceptedThreshold !== "number" || !isPositiveNumber(acceptedThreshold) || acceptedThreshold > 1) return false;
 	if (!isPositiveInteger(steering.maxChangedExamples)) return false;
-
-	if (!isPositiveInteger(feedback.maxStoredHints)) return false;
-	if (!isPositiveInteger(feedback.hintLifetimeSuggestions)) return false;
-	if (!isPositiveInteger(feedback.maxHintedSuggestionChars)) return false;
 
 	if (!isModelSetting(inference.seederModel)) return false;
 	if (!isModelSetting(inference.suggesterModel)) return false;

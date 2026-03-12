@@ -63,20 +63,8 @@ ${context.touchedFiles.length > 0 ? context.touchedFiles.map((file) => `- ${file
 UnresolvedQuestions:
 ${context.unresolvedQuestions.length > 0 ? context.unresolvedQuestions.map((item) => `- ${item}`).join("\n") : "(none)"}
 
-RejectionHints:
-${
-	context.rejectionHints.length > 0
-		? context.rejectionHints
-				.map((hint) =>
-					`- hint: ${JSON.stringify(hint.hint)}${
-						hint.includeRejectedSuggestionText && hint.rejectedSuggestionText
-							? `\n  rejected_suggestion: ${JSON.stringify(hint.rejectedSuggestionText)}`
-							: ""
-					}`,
-				)
-				.join("\n")
-		: "(none)"
-}
+CustomSuggesterInstruction:
+${context.customInstruction.trim() || "(none)"}
 
 ${renderChangedExamples(context.recentChanged)}
 
@@ -85,7 +73,8 @@ Instructions:
 - Use RecentUserPrompts as the main signal for what the user actually wants.
 - Default to continuing the current trajectory from RecentUserPrompts unless there is strong evidence the user wants a pivot.
 - If AbortContext is present, treat it as a strong signal that the user intentionally interrupted the previous execution.
-- Learn from changed examples and rejection hints: avoid repeating rejected phrasing or direction.
+- Follow CustomSuggesterInstruction as a standing preference unless it conflicts with the most recent explicit user request or AbortContext.
+- Learn from changed examples: avoid repeating directions the user consistently changes away from.
 - The latest assistant turn may contain a concrete proposed next step. Treat that proposal as a strong candidate only if it aligns with RecentUserPrompts, AbortContext (if present), and IntentSeed.
 - If the assistant's proposed next step aligns well, you may suggest a short approval-style prompt such as "Yes, go ahead.", "Proceed with that, and commit after every todo.", or "Do that, but keep X unchanged."
 - If you approve the assistant's proposal, do not repeat or closely paraphrase the assistant's wording verbatim.

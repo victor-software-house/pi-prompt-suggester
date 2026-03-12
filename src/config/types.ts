@@ -14,6 +14,7 @@ export interface ReseedConfig {
 
 export interface SuggestionConfig {
 	noSuggestionToken: string;
+	customInstruction: string;
 	fastPathContinueOnError: boolean;
 	maxAssistantTurnChars: number;
 	maxRecentUserPrompts: number;
@@ -37,12 +38,6 @@ export interface LoggingConfig {
 	level: "debug" | "info" | "warn" | "error";
 }
 
-export interface FeedbackConfig {
-	maxStoredHints: number;
-	hintLifetimeSuggestions: number;
-	maxHintedSuggestionChars: number;
-}
-
 export interface InferenceConfig {
 	seederModel: string;
 	suggesterModel: string;
@@ -57,6 +52,5 @@ export interface PromptSuggesterConfig {
 	suggestion: SuggestionConfig;
 	steering: SteeringConfig;
 	logging: LoggingConfig;
-	feedback: FeedbackConfig;
 	inference: InferenceConfig;
 }

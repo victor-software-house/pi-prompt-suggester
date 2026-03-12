@@ -29,7 +29,6 @@ Contains:
 Contains:
 - last shown suggestion
 - steering history (`accepted_exact | accepted_edited | changed_course`)
-- reject+hint memory (`rejectionHints`)
 
 Usage counters are tracked via a session-persistent usage ledger (`suggester-usage` custom entries):
 - suggester usage/cost counters
@@ -115,6 +114,5 @@ Inspection:
 - `/suggester thinking [show|set|clear] ...` (writes project override `.pi/suggester/config.json`)
 - `/suggester config [show|set [project|user] <path> <value>|reset [project|user|all]]`
 - `/suggesterSettings` (interactive TUI settings menu)
+- `/suggester instruction [show|set|clear]`
 - `/suggester seed-trace [limit]`
-- `/hint-suggest` (reject + hint)
-- `/quote-suggest` (reject + hint + rejected text)

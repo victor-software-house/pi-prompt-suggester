@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 6,
   "seed": {
     "maxDiffChars": 3000
   },
@@ -11,6 +11,7 @@
   },
   "suggestion": {
     "noSuggestionToken": "[no suggestion]",
+    "customInstruction": "",
     "fastPathContinueOnError": true,
     "maxAssistantTurnChars": 100000,
     "maxRecentUserPrompts": 20,
@@ -30,11 +31,6 @@
   },
   "logging": {
     "level": "info"
-  },
-  "feedback": {
-    "maxStoredHints": 8,
-    "hintLifetimeSuggestions": 3,
-    "maxHintedSuggestionChars": 10000
   },
   "inference": {
     "seederModel": "session-default",

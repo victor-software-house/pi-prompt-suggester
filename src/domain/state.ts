@@ -1,7 +1,7 @@
 import type { SteeringEvent } from "./steering.js";
 import type { SuggestionUsage } from "./suggestion.js";
 
-export const CURRENT_RUNTIME_STATE_VERSION = 7;
+export const CURRENT_RUNTIME_STATE_VERSION = 8;
 
 export interface LastSuggestionState {
 	text: string;
@@ -21,22 +21,12 @@ export interface SuggestionUsageStats {
 	last?: SuggestionUsage;
 }
 
-export interface RejectionHintState {
-	id: string;
-	hint: string;
-	includeRejectedSuggestionText: boolean;
-	rejectedSuggestionText?: string;
-	remainingUses: number;
-	createdAt: string;
-}
-
 export interface RuntimeState {
 	stateVersion: number;
 	lastSuggestion?: LastSuggestionState;
 	steeringHistory: SteeringEvent[];
 	suggestionUsage: SuggestionUsageStats;
 	seederUsage: SuggestionUsageStats;
-	rejectionHints: RejectionHintState[];
 	turnsSinceLastStalenessCheck: number;
 }
 
@@ -61,6 +51,5 @@ export const INITIAL_RUNTIME_STATE: RuntimeState = {
 		totalTokens: 0,
 		costTotal: 0,
 	},
-	rejectionHints: [],
 	turnsSinceLastStalenessCheck: 0,
 };

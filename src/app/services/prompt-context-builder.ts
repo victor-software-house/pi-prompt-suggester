@@ -8,12 +8,6 @@ function truncate(value: string, maxChars: number): string {
 	return `${value.slice(0, maxChars)}…`;
 }
 
-export interface SuggestionFeedbackHint {
-	hint: string;
-	includeRejectedSuggestionText: boolean;
-	rejectedSuggestionText?: string;
-}
-
 export interface SuggestionPromptContext {
 	latestAssistantTurn: string;
 	turnStatus: TurnContext["status"];
@@ -24,7 +18,7 @@ export interface SuggestionPromptContext {
 	unresolvedQuestions: string[];
 	abortContextNote?: string;
 	recentChanged: SteeringSlice["recentChanged"];
-	rejectionHints: SuggestionFeedbackHint[];
+	customInstruction: string;
 	noSuggestionToken: string;
 	maxSuggestionChars: number;
 }
@@ -36,7 +30,6 @@ export class PromptContextBuilder {
 		turn: TurnContext,
 		seed: SeedArtifact | null,
 		steering: SteeringSlice,
-		rejectionHints: SuggestionFeedbackHint[] = [],
 	): SuggestionPromptContext {
 		return {
 			latestAssistantTurn: truncate(turn.assistantText, this.config.suggestion.maxAssistantTurnChars),
@@ -54,7 +47,7 @@ export class PromptContextBuilder {
 				? truncate(turn.abortContextNote, this.config.suggestion.maxAbortContextChars)
 				: undefined,
 			recentChanged: steering.recentChanged.slice(0, this.config.steering.maxChangedExamples),
-			rejectionHints,
+			customInstruction: this.config.suggestion.customInstruction,
 			noSuggestionToken: this.config.suggestion.noSuggestionToken,
 			maxSuggestionChars: this.config.suggestion.maxSuggestionChars,
 		};

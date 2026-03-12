@@ -30,7 +30,6 @@ interface PersistedInteractionState {
 	stateVersion: number;
 	lastSuggestion?: RuntimeState["lastSuggestion"];
 	steeringHistory: RuntimeState["steeringHistory"];
-	rejectionHints: RuntimeState["rejectionHints"];
 	turnsSinceLastStalenessCheck: number;
 }
 
@@ -168,28 +167,11 @@ function parseUsage(raw: unknown): SuggestionUsage | undefined {
 }
 
 function normalizeInteractionState(raw: unknown): PersistedInteractionState {
-	const latest = (raw ?? INITIAL_RUNTIME_STATE) as Partial<RuntimeState>;
-	const rejectionHints = Array.isArray(latest.rejectionHints)
-		? latest.rejectionHints
-				.map((entry) => ({
-					id: String(entry.id ?? "").trim(),
-					hint: String(entry.hint ?? "").trim(),
-					includeRejectedSuggestionText: Boolean(entry.includeRejectedSuggestionText),
-					rejectedSuggestionText:
-						typeof entry.rejectedSuggestionText === "string" && entry.rejectedSuggestionText.trim().length > 0
-							? entry.rejectedSuggestionText
-							: undefined,
-					remainingUses: Number(entry.remainingUses ?? 0),
-					createdAt: String(entry.createdAt ?? "").trim() || new Date(0).toISOString(),
-				}))
-				.filter((entry) => entry.id.length > 0 && entry.hint.length > 0 && entry.remainingUses > 0)
-		: [];
-
+	const latest = (raw ?? INITIAL_RUNTIME_STATE) as Partial<RuntimeState> & { steeringHistory?: unknown };
 	return {
 		stateVersion: CURRENT_RUNTIME_STATE_VERSION,
 		lastSuggestion: latest.lastSuggestion,
 		steeringHistory: Array.isArray(latest.steeringHistory) ? latest.steeringHistory : [],
-		rejectionHints,
 		turnsSinceLastStalenessCheck: Math.max(0, Number(latest.turnsSinceLastStalenessCheck ?? 0)),
 	};
 }
@@ -201,7 +183,6 @@ function toRuntimeState(interaction: PersistedInteractionState, usage: Suggestio
 		steeringHistory: interaction.steeringHistory,
 		suggestionUsage: cloneUsageStats(usage.suggester),
 		seederUsage: cloneUsageStats(usage.seeder),
-		rejectionHints: interaction.rejectionHints,
 		turnsSinceLastStalenessCheck: interaction.turnsSinceLastStalenessCheck,
 	};
 }
@@ -211,7 +192,6 @@ function toPersistedInteractionState(state: RuntimeState): PersistedInteractionS
 		stateVersion: CURRENT_RUNTIME_STATE_VERSION,
 		lastSuggestion: state.lastSuggestion,
 		steeringHistory: state.steeringHistory,
-		rejectionHints: state.rejectionHints,
 		turnsSinceLastStalenessCheck: state.turnsSinceLastStalenessCheck,
 	});
 }
@@ -264,9 +244,9 @@ async function readJson<T>(filePath: string): Promise<T | undefined> {
 }
 
 export class SessionStateStore implements StateStore {
-	private readonly ephemeral = new Map<string, InMemorySessionState>();
+	private readonly inMemory = new Map<string, InMemorySessionState>();
+	private readonly usageTasks = new Map<string, Promise<void>>();
 	private readonly migrationTasks = new Map<string, Promise<void>>();
-	private readonly usageWriteTasks = new Map<string, Promise<void>>();
 
 	public constructor(
 		private readonly cwd: string,
@@ -278,8 +258,11 @@ export class SessionStateStore implements StateStore {
 		if (!context) return INITIAL_RUNTIME_STATE;
 
 		if (!context.persistent) {
-			const state = this.getOrCreateEphemeralState(context.sessionId);
-			return toRuntimeState(state.interaction, state.usage);
+			const current = this.inMemory.get(context.sessionId);
+			if (current) {
+				return toRuntimeState(current.interaction, current.usage);
+			}
+			return INITIAL_RUNTIME_STATE;
 		}
 
 		await this.ensureMigrated(context);
@@ -294,12 +277,9 @@ export class SessionStateStore implements StateStore {
 
 		const interaction = toPersistedInteractionState(state);
 		if (!context.persistent) {
-			const current = this.getOrCreateEphemeralState(context.sessionId);
+			const current = this.inMemory.get(context.sessionId) ?? { interaction, usage: emptyUsagePair() };
 			current.interaction = interaction;
-			current.usage = {
-				suggester: cloneUsageStats(state.suggestionUsage),
-				seeder: cloneUsageStats(state.seederUsage),
-			};
+			this.inMemory.set(context.sessionId, current);
 			return;
 		}
 
@@ -313,26 +293,39 @@ export class SessionStateStore implements StateStore {
 		if (!context) return;
 
 		if (!context.persistent) {
-			const current = this.getOrCreateEphemeralState(context.sessionId);
-			if (kind === "seeder") current.usage.seeder = addUsage(current.usage.seeder, usage);
-			else current.usage.suggester = addUsage(current.usage.suggester, usage);
+			const current = this.inMemory.get(context.sessionId) ?? {
+				interaction: normalizeInteractionState(INITIAL_RUNTIME_STATE),
+				usage: emptyUsagePair(),
+			};
+			current.usage = {
+				...current.usage,
+				[kind]: addUsage(current.usage[kind], usage),
+			};
+			this.inMemory.set(context.sessionId, current);
 			return;
 		}
 
 		await this.ensureMigrated(context);
-		await this.enqueueUsageWrite(context, async () => {
+		const usageKey = context.usageFile!;
+		const existingTask = this.usageTasks.get(usageKey) ?? Promise.resolve();
+		const task = existingTask.then(async () => {
 			const current = await this.loadUsageState(context);
 			const next = {
 				suggester: kind === "suggester" ? addUsage(current.suggester, usage) : current.suggester,
 				seeder: kind === "seeder" ? addUsage(current.seeder, usage) : current.seeder,
 			};
-			await atomicWriteJson(context.usageFile!, {
+			await fs.mkdir(path.dirname(usageKey), { recursive: true });
+			await atomicWriteJson(usageKey, {
 				schemaVersion: STORE_SCHEMA_VERSION,
 				suggestionUsage: next.suggester,
 				seederUsage: next.seeder,
 				updatedAt: new Date().toISOString(),
 			} satisfies PersistedUsageState);
 		});
+		this.usageTasks.set(usageKey, task.finally(() => {
+			if (this.usageTasks.get(usageKey) === task) this.usageTasks.delete(usageKey);
+		}));
+		await task;
 	}
 
 	private getStorageContext(): SessionStorageContext | undefined {
@@ -369,85 +362,17 @@ export class SessionStateStore implements StateStore {
 		};
 	}
 
-	private getOrCreateEphemeralState(sessionId: string): InMemorySessionState {
-		const existing = this.ephemeral.get(sessionId);
-		if (existing) return existing;
-		const created: InMemorySessionState = {
-			interaction: normalizeInteractionState(INITIAL_RUNTIME_STATE),
-			usage: emptyUsagePair(),
-		};
-		this.ephemeral.set(sessionId, created);
-		return created;
-	}
-
 	private stateFilePath(interactionDir: string, key: string): string {
 		return path.join(interactionDir, `${normalizeSessionKey(key)}.json`);
 	}
 
-	private async enqueueUsageWrite(context: SessionStorageContext, write: () => Promise<void>): Promise<void> {
-		const queueKey = context.usageFile!;
-		const previous = this.usageWriteTasks.get(queueKey) ?? Promise.resolve();
-		const next = previous.catch(() => undefined).then(write);
-		this.usageWriteTasks.set(queueKey, next);
-		try {
-			await next;
-		} finally {
-			if (this.usageWriteTasks.get(queueKey) === next) {
-				this.usageWriteTasks.delete(queueKey);
-			}
-		}
-	}
-
-	private async ensureMigrated(context: SessionStorageContext): Promise<void> {
-		const migrationKey = context.storageDir!;
-		const existingTask = this.migrationTasks.get(migrationKey);
-		if (existingTask) {
-			await existingTask;
-			return;
-		}
-
-		const task = this.performMigration(context).finally(() => {
-			this.migrationTasks.delete(migrationKey);
-		});
-		this.migrationTasks.set(migrationKey, task);
-		await task;
-	}
-
-	private async performMigration(context: SessionStorageContext): Promise<void> {
-		await fs.mkdir(context.interactionDir!, { recursive: true });
-		const existingMeta = await readJson<PersistedSessionMetadata>(context.metaFile!);
-		if (existingMeta?.schemaVersion === STORE_SCHEMA_VERSION) return;
-
-		const sessionManager = this.getSessionManager();
-		const allEntries = sessionManager?.getEntries() ?? [];
-		const legacySnapshots = extractLegacyInteractionSnapshots(allEntries);
-		for (const [entryId, interaction] of legacySnapshots.entries()) {
-			await atomicWriteJson(this.stateFilePath(context.interactionDir!, entryId), interaction);
-		}
-
-		const usageTotals = extractUsageTotals(allEntries);
-		await atomicWriteJson(context.usageFile!, {
-			schemaVersion: STORE_SCHEMA_VERSION,
-			suggestionUsage: usageTotals.hasLedger ? usageTotals.suggester : emptyUsageStats(),
-			seederUsage: usageTotals.hasLedger ? usageTotals.seeder : emptyUsageStats(),
-			updatedAt: new Date().toISOString(),
-		} satisfies PersistedUsageState);
-
-		const metadata: PersistedSessionMetadata = {
-			schemaVersion: STORE_SCHEMA_VERSION,
-			sessionId: context.sessionId,
-			sessionFile: context.sessionFile,
-			cwd: sessionManager?.getCwd() ?? this.cwd,
-			ignoreLegacyPiSessionEntries: true,
-			legacyMigration: {
-				performedAt: new Date().toISOString(),
-				importedLegacyEntries: legacySnapshots.size > 0 || usageTotals.legacyUsageEntryCount > 0,
-				legacyStateEntryCount: legacySnapshots.size,
-				legacyUsageEntryCount: usageTotals.legacyUsageEntryCount,
-				note: "Legacy suggester-state/suggester-usage pi session entries were imported once into extension-owned storage and are ignored afterwards.",
-			},
+	private async loadUsageState(context: SessionStorageContext): Promise<SuggestionUsageStatsPair> {
+		const persisted = await readJson<PersistedUsageState>(context.usageFile!);
+		if (!persisted) return emptyUsagePair();
+		return {
+			suggester: normalizeUsageStats(persisted.suggestionUsage, emptyUsageStats()),
+			seeder: normalizeUsageStats(persisted.seederUsage, emptyUsageStats()),
 		};
-		await atomicWriteJson(context.metaFile!, metadata);
 	}
 
 	private async loadInteractionState(context: SessionStorageContext): Promise<PersistedInteractionState> {
@@ -458,14 +383,58 @@ export class SessionStateStore implements StateStore {
 		return normalizeInteractionState(INITIAL_RUNTIME_STATE);
 	}
 
-	private async loadUsageState(context: SessionStorageContext): Promise<SuggestionUsageStatsPair> {
-		const stored = await readJson<PersistedUsageState>(context.usageFile!);
-		if (!stored) return emptyUsagePair();
-		return {
-			suggester: normalizeUsageStats(stored.suggestionUsage, emptyUsageStats()),
-			seeder: normalizeUsageStats(stored.seederUsage, emptyUsageStats()),
-		};
+	private async ensureMigrated(context: SessionStorageContext): Promise<void> {
+		const migrationKey = context.storageDir!;
+		const existingTask = this.migrationTasks.get(migrationKey);
+		if (existingTask) {
+			await existingTask;
+			return;
+		}
+		const task = this.performMigration(context).finally(() => {
+			this.migrationTasks.delete(migrationKey);
+		});
+		this.migrationTasks.set(migrationKey, task);
+		await task;
+	}
+
+	private async performMigration(context: SessionStorageContext): Promise<void> {
+		await fs.mkdir(context.storageDir!, { recursive: true });
+		const existingMeta = await readJson<PersistedSessionMetadata>(context.metaFile!);
+		if (existingMeta?.schemaVersion === STORE_SCHEMA_VERSION) return;
+
+		const sessionManager = this.getSessionManager();
+		const allEntries = sessionManager?.getEntries() ?? [];
+		const usageTotals = extractUsageTotals(allEntries);
+		const legacySnapshots = extractLegacyInteractionSnapshots(allEntries);
+		const importedLegacyEntries = legacySnapshots.size > 0 || usageTotals.hasLedger;
+
+		await fs.mkdir(context.interactionDir!, { recursive: true });
+		for (const [entryId, interaction] of legacySnapshots.entries()) {
+			await atomicWriteJson(this.stateFilePath(context.interactionDir!, entryId), interaction);
+		}
+
+		if (!(await readJson<PersistedUsageState>(context.usageFile!))) {
+			await atomicWriteJson(context.usageFile!, {
+				schemaVersion: STORE_SCHEMA_VERSION,
+				suggestionUsage: usageTotals.suggester,
+				seederUsage: usageTotals.seeder,
+				updatedAt: new Date().toISOString(),
+			} satisfies PersistedUsageState);
+		}
+
+		await atomicWriteJson(context.metaFile!, {
+			schemaVersion: STORE_SCHEMA_VERSION,
+			sessionId: context.sessionId,
+			sessionFile: context.sessionFile,
+			cwd: sessionManager?.getCwd() ?? this.cwd,
+			ignoreLegacyPiSessionEntries: true,
+			legacyMigration: {
+				performedAt: new Date().toISOString(),
+				importedLegacyEntries,
+				legacyStateEntryCount: legacySnapshots.size,
+				legacyUsageEntryCount: usageTotals.legacyUsageEntryCount,
+				note: "Legacy suggester-state/suggester-usage pi session entries were imported once into extension-owned storage and are ignored afterwards.",
+			},
+		} satisfies PersistedSessionMetadata);
 	}
 }
-
-export { LEGACY_STATE_CUSTOM_TYPE, LEGACY_USAGE_CUSTOM_TYPE };

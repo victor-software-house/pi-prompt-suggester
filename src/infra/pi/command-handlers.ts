@@ -81,6 +81,12 @@ function formatTokens(count: number): string {
 	return `${Math.round(count / 1000000)}M`;
 }
 
+function summarizeInstruction(value: string): string {
+	const trimmed = value.trim();
+	if (!trimmed) return "(none)";
+	return trimmed.replace(/\s+/g, " ").slice(0, 80);
+}
+
 function parseConfigScope(token: string | undefined): ConfigScope | undefined {
 	if (!token) return undefined;
 	if (token === "project" || token === "user") return token;
@@ -178,6 +184,7 @@ export function renderStatus(
 		`- implementation status: ${seed?.implementationStatusSummary?.slice(0, 140) ?? "(none)"}`,
 		`- active session model: ${activeModel}`,
 		`- config schemaVersion: ${config.schemaVersion}`,
+		`- custom instruction: ${summarizeInstruction(config.suggestion.customInstruction)}`,
 		`- models (config): seeder=${config.inference.seederModel}, suggester=${config.inference.suggesterModel}`,
 		`- thinking (config): seeder=${config.inference.seederThinking}, suggester=${config.inference.suggesterThinking}`,
 		`- ${compactUsageLine}`,
@@ -213,6 +220,15 @@ async function readJsonIfExists(filePath: string): Promise<Record<string, unknow
 async function writeJson(filePath: string, value: Record<string, unknown>): Promise<void> {
 	await fs.mkdir(path.dirname(filePath), { recursive: true });
 	await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+async function readOverrideCustomInstruction(cwd: string, scope: ConfigScope): Promise<string> {
+	const raw = await readJsonIfExists(overridePathForScope(cwd, scope));
+	const suggestion = raw.suggestion;
+	if (!suggestion || typeof suggestion !== "object" || Array.isArray(suggestion)) return "";
+	return typeof (suggestion as { customInstruction?: unknown }).customInstruction === "string"
+		? String((suggestion as { customInstruction?: unknown }).customInstruction)
+		: "";
 }
 
 async function writeOverrideValue(
@@ -388,6 +404,62 @@ export async function handleThinkingCommand(
 	}
 
 	await applyConfigChange(ctx, composition, key, rawLevel);
+}
+
+export async function handleInstructionCommand(
+	args: string,
+	ctx: ExtensionCommandContext,
+	composition: AppComposition,
+): Promise<void> {
+	const tokens = args.trim().split(/\s+/).filter(Boolean);
+	if (tokens.length === 0 || tokens[0] === "show") {
+		ctx.ui.notify(
+			[
+				"suggester custom instruction",
+				`- effective value: ${summarizeInstruction(composition.config.suggestion.customInstruction)}`,
+				`- project override: ${projectOverridePath(ctx.cwd)}`,
+				`- user override: ${userOverridePath()}`,
+				"- edit in TUI: /suggesterSettings → Custom instruction",
+				"- edit by command: /suggester instruction set [project|user]",
+				"- clear: /suggester instruction clear [project|user]",
+			].join("\n"),
+			"info",
+		);
+		return;
+	}
+
+	const action = tokens[0]?.toLowerCase();
+	const scope = parseConfigScope(tokens[1]?.toLowerCase()) ?? "project";
+	if (action !== "set" && action !== "clear") {
+		ctx.ui.notify("Usage: /suggester instruction [show|set [project|user]|clear [project|user]]", "error");
+		return;
+	}
+
+	if (action === "clear") {
+		await writeOverrideValue(ctx, composition, scope, "suggestion.customInstruction", "");
+		ctx.ui.notify(`Cleared custom instruction in ${scope} override.`, "info");
+		return;
+	}
+
+	const initialValue = scope === "project"
+		? composition.config.suggestion.customInstruction
+		: await readOverrideCustomInstruction(ctx.cwd, scope);
+	const next = await ctx.ui.editor(
+		`Custom suggester instruction (${scope} override)`,
+		initialValue,
+	);
+	if (next === undefined) {
+		ctx.ui.notify("Custom instruction edit canceled.", "info");
+		return;
+	}
+
+	await writeOverrideValue(ctx, composition, scope, "suggestion.customInstruction", next);
+	ctx.ui.notify(
+		next.trim()
+			? `Updated custom instruction in ${scope} override.`
+			: `Cleared custom instruction in ${scope} override.`,
+		"info",
+	);
 }
 
 export async function handleConfigCommand(
@@ -568,6 +640,11 @@ export async function handleSettingsUiCommand(
 				description: `${activeScope} → ${overridePathForScope(ctx.cwd, activeScope)}`,
 			},
 			{
+				value: "suggestion.customInstruction",
+				label: "Custom instruction",
+				description: summarizeInstruction(composition.config.suggestion.customInstruction),
+			},
+			{
 				value: "suggestion.maxSuggestionChars",
 				label: "Max suggestion chars",
 				description: String(composition.config.suggestion.maxSuggestionChars),
@@ -732,6 +809,22 @@ export async function handleSettingsUiCommand(
 				await fs.rm(overridePathForScope(ctx.cwd, activeScope), { force: true });
 				await refreshCompositionConfig(ctx, composition);
 				ctx.ui.notify(`Reset ${activeScope} suggester override.`, "info");
+				continue;
+			}
+
+			if (action === "suggestion.customInstruction") {
+				const currentValue = activeScope === "project"
+					? composition.config.suggestion.customInstruction
+					: await readOverrideCustomInstruction(ctx.cwd, activeScope);
+				const next = await ctx.ui.editor(`Custom suggester instruction (${activeScope} override)`, currentValue);
+				if (next === undefined) continue;
+				await writeOverrideValue(ctx, composition, activeScope, action, next);
+				ctx.ui.notify(
+					next.trim()
+						? `Updated ${action} in ${activeScope} override.`
+						: `Cleared ${action} in ${activeScope} override.`,
+					"info",
+				);
 				continue;
 			}
 

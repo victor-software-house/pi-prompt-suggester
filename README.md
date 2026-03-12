@@ -33,8 +33,8 @@ Implemented end-to-end:
 - separate usage accounting for suggester + seeder model calls (with combined totals in `/suggester status`)
 - session-persistent usage ledger so totals survive reload/resume
 - `/suggester status`, `/suggester reseed`
-- `/suggester model ...`, `/suggester thinking ...`, `/suggester seed-trace [limit]`
-- `/hint-suggest` and `/quote-suggest` for reject+hint regeneration
+- `/suggester model ...`, `/suggester thinking ...`, `/suggester instruction ...`, `/suggester seed-trace [limit]`
+- persistent custom suggester instruction editable from `/suggesterSettings`
 
 ## Key files
 
@@ -95,12 +95,15 @@ All controls are under `/suggester`.
 - `/suggester model [show|set|clear] <seeder|suggester> [provider/model|session-default]`
 - `/suggester thinking [show|set|clear] <seeder|suggester> [minimal|low|medium|high|xhigh|session-default]`
 - `/suggester config [show|set [project|user] <path> <value>|reset [project|user|all]]` — inspect, set, or reset overrides
-- `/suggesterSettings` — interactive TUI settings menu for common suggester options
+- `/suggester instruction [show|set [project|user]|clear [project|user]]` — inspect or edit the persistent custom suggester instruction
+- `/suggesterSettings` — interactive TUI settings menu for common suggester options, including the custom instruction editor
 - `/suggester seed-trace [limit]` — show latest seeder run trace from persistent logs
 
-### Reject + hint commands
-- `/hint-suggest` — reject current suggestion, provide hint, regenerate
-- `/quote-suggest` — same, but also inject rejected suggestion text
+### Custom instruction
+- `/suggester instruction show` — inspect the effective custom suggester instruction
+- `/suggester instruction set [project|user]` — open a multiline editor for the persistent instruction
+- `/suggester instruction clear [project|user]` — clear it
+- `/suggesterSettings` — includes a TUI entry for editing the custom instruction
 
 ### Config
 Base config:
@@ -118,7 +121,7 @@ Merge order:
 Notes:
 - config now has `schemaVersion`; override files are auto-normalized on load: supported values are kept, unsupported/invalid values are dropped, and missing fields fall back to the current defaults.
 - `inference.* = session-default` means “use current pi session model/thinking”.
-- `feedback.*` controls reject+hint memory and hinted suggestion length.
+- `suggestion.customInstruction` is a persistent prompt-engineering hook for the suggester and can be edited via `/suggesterSettings` or `/suggester instruction set [project|user]`.
 - `/suggester model ...` and `/suggester thinking ...` edit project override (`.pi/suggester/config.json`) and apply immediately (no extension reload).
 - `/suggester config set [project|user] <path> <value>` writes to the selected override file and applies immediately.
 - `/suggester config set suggestion.maxSuggestionChars 200` updates prompt length in project override.
