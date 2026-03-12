@@ -18,6 +18,12 @@ Instead of naive autocomplete, `pi-prompt-suggester` uses a two-stage approach:
    - Generate a high-quality next-prompt suggestion
    - Render as ghost text when editor state is compatible (no widget fallback)
 
+## Highlights
+
+- persistent custom suggester instruction you can edit in the TUI via `/suggesterSettings`
+- project- or user-scoped suggester behavior overrides
+- repo-aware suggestions grounded in a reusable intent seed
+
 ## Current implementation
 
 Implemented end-to-end:
