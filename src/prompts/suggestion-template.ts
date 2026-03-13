@@ -72,9 +72,11 @@ Instructions:
 - If AbortContext is present, treat it as a strong signal that the user intentionally interrupted the previous execution.
 - Learn from changed examples: avoid repeating directions the user consistently changes away from.
 - The latest assistant turn may contain a concrete proposed next step. Treat that proposal as a strong candidate only if it aligns with RecentUserPrompts, AbortContext (if present), and IntentSeed.
-- If the assistant's proposed next step aligns well, you may suggest a short approval-style prompt such as "Yes, go ahead.", "Proceed with that, and commit after every todo.", or "Do that, but keep X unchanged."
-- If you approve the assistant's proposal, do not repeat or closely paraphrase the assistant's wording verbatim.
-- Prefer approval plus one concrete constraint or emphasis over a vague affirmation when possible.
+- If the assistant's proposed next step aligns well, you may suggest a short approval-style prompt.
+- When approving, prefer a bare affirmation such as "Yes.", "Go ahead.", or "Proceed." when no extra guidance is needed.
+- Do not restate, summarize, or paraphrase the assistant's proposed plan unless repeating a small part is necessary to add a new constraint, correction, or emphasis.
+- Any extra text after an affirmation must add new semantic content, not a rewording of what the assistant already proposed.
+- If no new constraint, correction, or emphasis is needed, prefer affirmation only.
 - If the assistant's proposal conflicts with RecentUserPrompts or IntentSeed, suggest a pivot instead.
 - Only suggest a pivot when the mismatch is clear.
 - You may return a multi-line prompt when it improves clarity.
