@@ -3,6 +3,7 @@ import { toInvocationThinkingLevel } from "../../config/inference.js";
 import type { TurnContext } from "../../domain/suggestion.js";
 import { addUsageStats } from "../../domain/usage.js";
 import type { SuggestionUsageStats } from "../../domain/state.js";
+import type { SuggesterVariantStore } from "../../infra/pi/suggester-variant-store.js";
 import type { Logger } from "../ports/logger.js";
 import type { SeedStore } from "../ports/seed-store.js";
 import type { StateStore } from "../ports/state-store.js";
@@ -26,6 +27,7 @@ export interface TurnEndOrchestratorDeps {
 	suggestionSink: SuggestionSink;
 	logger: Logger;
 	checkForStaleness: boolean;
+	variantStore?: SuggesterVariantStore;
 }
 
 export class TurnEndOrchestrator {
@@ -66,17 +68,19 @@ export class TurnEndOrchestrator {
 		const steering = {
 			recentChanged: state.steeringHistory.filter((event) => event.classification === "changed_course").reverse(),
 		};
+		const effectiveConfig = this.deps.variantStore?.getEffectiveConfig(this.deps.config) ?? this.deps.config;
 		const suggestion = await this.deps.suggestionEngine.suggest(
 			turn,
 			seed,
 			steering,
 			{
 				modelRef:
-					this.deps.config.inference.suggesterModel === "session-default"
+					effectiveConfig.inference.suggesterModel === "session-default"
 						? undefined
-						: this.deps.config.inference.suggesterModel,
-				thinkingLevel: toInvocationThinkingLevel(this.deps.config.inference.suggesterThinking),
+						: effectiveConfig.inference.suggesterModel,
+				thinkingLevel: toInvocationThinkingLevel(effectiveConfig.inference.suggesterThinking),
 			},
+			effectiveConfig,
 		);
 		const nextUsage = suggestion.usage ? addUsageStats(state.suggestionUsage, suggestion.usage) : state.suggestionUsage;
 		if (suggestion.usage) {

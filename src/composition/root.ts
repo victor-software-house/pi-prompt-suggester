@@ -22,6 +22,7 @@ import { PiSuggestionSink, refreshSuggesterUi } from "../infra/pi/ui-adapter.js"
 import { SessionStateStore } from "../infra/pi/session-state-store.js";
 import { RuntimeRef } from "../infra/pi/runtime-ref.js";
 import { createUiContext } from "../infra/pi/ui-context.js";
+import { SuggesterVariantStore } from "../infra/pi/suggester-variant-store.js";
 
 export interface AppComposition {
 	config: PromptSuggesterConfig;
@@ -29,6 +30,7 @@ export interface AppComposition {
 	stores: {
 		seedStore: JsonSeedStore;
 		stateStore: SessionStateStore;
+		variantStore: SuggesterVariantStore;
 	};
 	eventLog: NdjsonEventLog;
 	orchestrators: {
@@ -42,9 +44,12 @@ export interface AppComposition {
 export async function createAppComposition(pi: ExtensionAPI, cwd: string = process.cwd()): Promise<AppComposition> {
 	const config = await new FileConfigLoader(cwd).load();
 	const runtimeRef = new RuntimeRef();
+	const variantStore = new SuggesterVariantStore(cwd);
+	await variantStore.init();
 	const uiContext = createUiContext({
 		runtimeRef,
 		config,
+		variantStore,
 		getSessionThinkingLevel: () => pi.getThinkingLevel(),
 	});
 	const eventLog = new NdjsonEventLog(path.join(cwd, ".pi", "suggester", "logs", "events.ndjson"));
@@ -114,6 +119,7 @@ export async function createAppComposition(pi: ExtensionAPI, cwd: string = proce
 		suggestionSink,
 		logger,
 		checkForStaleness: config.reseed.checkAfterEveryTurn,
+		variantStore,
 	});
 
 	const userSubmit = new UserSubmitOrchestrator({
@@ -131,6 +137,7 @@ export async function createAppComposition(pi: ExtensionAPI, cwd: string = proce
 		stores: {
 			seedStore,
 			stateStore,
+			variantStore,
 		},
 		eventLog,
 		orchestrators: {

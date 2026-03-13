@@ -3,6 +3,7 @@ import type { ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
 import type { AppComposition } from "../../../composition/root.js";
 import { SuggesterConfigPersistence } from "./config-persistence.js";
 import { getModelSelectionOptions, resolveModelRef, SESSION_DEFAULT, THINKING_LEVELS, type ConfigScope, summarizeInstruction } from "./shared.js";
+import { manageVariantsUi, runAbTestingUi, showAbStats } from "./ab-testing.js";
 
 export async function handleSettingsUiCommand(
 	ctx: ExtensionCommandContext,
@@ -19,6 +20,26 @@ export async function handleSettingsUiCommand(
 
 	const pickMenuAction = async (): Promise<string | null> => {
 		const items = [
+			{
+				value: "ab.activeVariant",
+				label: "Active variant",
+				description: composition.stores.variantStore.getActiveVariantName(),
+			},
+			{
+				value: "ab.manageVariants",
+				label: "Manage variants",
+				description: `${composition.stores.variantStore.listVariants().length} variants`,
+			},
+			{
+				value: "ab.compareVariants",
+				label: "Compare variants",
+				description: "Generate two suggestions and pick the better one",
+			},
+			{
+				value: "ab.stats",
+				label: "A/B stats",
+				description: "Wins, losses, ties, both-bad",
+			},
 			{
 				value: "scope",
 				label: "Write scope",
@@ -179,6 +200,32 @@ export async function handleSettingsUiCommand(
 		if (!action || action === "close") return;
 
 		try {
+			if (action === "ab.activeVariant") {
+				const selected = await ctx.ui.select(
+					"Active variant",
+					composition.stores.variantStore.listVariants().map((entry) => entry.name),
+				);
+				if (!selected) continue;
+				await composition.stores.variantStore.setActiveVariant(selected);
+				ctx.ui.notify(`Active variant set to '${selected}'.`, "info");
+				continue;
+			}
+
+			if (action === "ab.manageVariants") {
+				await manageVariantsUi(ctx, composition);
+				continue;
+			}
+
+			if (action === "ab.compareVariants") {
+				await runAbTestingUi(ctx, composition);
+				continue;
+			}
+
+			if (action === "ab.stats") {
+				await showAbStats(ctx, composition);
+				continue;
+			}
+
 			if (action === "scope") {
 				const selected = await ctx.ui.select("Write overrides to which scope?", ["project", "user"]);
 				if (selected === "project" || selected === "user") activeScope = selected;

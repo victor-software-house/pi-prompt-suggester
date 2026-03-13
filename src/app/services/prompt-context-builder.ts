@@ -30,26 +30,28 @@ export class PromptContextBuilder {
 		turn: TurnContext,
 		seed: SeedArtifact | null,
 		steering: SteeringSlice,
+		overrideConfig?: PromptSuggesterConfig,
 	): SuggestionPromptContext {
+		const config = overrideConfig ?? this.config;
 		return {
-			latestAssistantTurn: truncate(turn.assistantText, this.config.suggestion.maxAssistantTurnChars),
+			latestAssistantTurn: truncate(turn.assistantText, config.suggestion.maxAssistantTurnChars),
 			turnStatus: turn.status,
 			intentSeed: seed,
 			recentUserPrompts: turn.recentUserPrompts
-				.slice(0, this.config.suggestion.maxRecentUserPrompts)
-				.map((prompt) => truncate(prompt, this.config.suggestion.maxRecentUserPromptChars)),
+				.slice(0, config.suggestion.maxRecentUserPrompts)
+				.map((prompt) => truncate(prompt, config.suggestion.maxRecentUserPromptChars)),
 			toolSignals: turn.toolSignals
-				.slice(0, this.config.suggestion.maxToolSignals)
-				.map((signal) => truncate(signal, this.config.suggestion.maxToolSignalChars)),
-			touchedFiles: turn.touchedFiles.slice(0, this.config.suggestion.maxTouchedFiles),
-			unresolvedQuestions: turn.unresolvedQuestions.slice(0, this.config.suggestion.maxUnresolvedQuestions),
+				.slice(0, config.suggestion.maxToolSignals)
+				.map((signal) => truncate(signal, config.suggestion.maxToolSignalChars)),
+			touchedFiles: turn.touchedFiles.slice(0, config.suggestion.maxTouchedFiles),
+			unresolvedQuestions: turn.unresolvedQuestions.slice(0, config.suggestion.maxUnresolvedQuestions),
 			abortContextNote: turn.abortContextNote
-				? truncate(turn.abortContextNote, this.config.suggestion.maxAbortContextChars)
+				? truncate(turn.abortContextNote, config.suggestion.maxAbortContextChars)
 				: undefined,
-			recentChanged: steering.recentChanged.slice(0, this.config.steering.maxChangedExamples),
-			customInstruction: this.config.suggestion.customInstruction,
-			noSuggestionToken: this.config.suggestion.noSuggestionToken,
-			maxSuggestionChars: this.config.suggestion.maxSuggestionChars,
+			recentChanged: steering.recentChanged.slice(0, config.steering.maxChangedExamples),
+			customInstruction: config.suggestion.customInstruction,
+			noSuggestionToken: config.suggestion.noSuggestionToken,
+			maxSuggestionChars: config.suggestion.maxSuggestionChars,
 		};
 	}
 }

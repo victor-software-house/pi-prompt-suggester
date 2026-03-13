@@ -10,6 +10,8 @@ import {
 	handleSeedTraceCommand,
 	handleSettingsUiCommand,
 	handleThinkingCommand,
+	handleVariantCommand,
+	handleAbCommand,
 	renderStatus,
 } from "./infra/pi/command-handlers.js";
 import { refreshSuggesterUi } from "./infra/pi/ui-adapter.js";
@@ -70,6 +72,7 @@ export default function suggester(pi: ExtensionAPI) {
 					createUiContext({
 						runtimeRef: composition.runtimeRef,
 						config: composition.config,
+						variantStore: composition.stores.variantStore,
 						getSessionThinkingLevel: () => pi.getThinkingLevel(),
 					}),
 				);
@@ -130,10 +133,17 @@ export default function suggester(pi: ExtensionAPI) {
 				composition.stores.seedStore.load(),
 				composition.stores.stateStore.load(),
 			]);
+			const effectiveConfig = composition.stores.variantStore.getEffectiveConfig(composition.config);
 			pi.sendMessage(
 				{
 					customType: "prompt-suggester-status",
-					content: renderStatus(seed, state, composition.config, ctx),
+					content: renderStatus(
+						seed,
+						state,
+						effectiveConfig,
+						ctx,
+						composition.stores.variantStore.getActiveVariantName(),
+					),
 					display: true,
 				},
 				{ triggerTurn: false },
@@ -154,6 +164,14 @@ export default function suggester(pi: ExtensionAPI) {
 		onInstructionCommand: async (args, ctx) => {
 			const composition = await setRuntimeContext(ctx);
 			await handleInstructionCommand(args, ctx, composition);
+		},
+		onVariantCommand: async (args, ctx) => {
+			const composition = await setRuntimeContext(ctx);
+			await handleVariantCommand(args, ctx, composition);
+		},
+		onAbCommand: async (args, ctx) => {
+			const composition = await setRuntimeContext(ctx);
+			await handleAbCommand(args, ctx, composition);
 		},
 		onSettingsUiCommand: async (ctx) => {
 			const composition = await setRuntimeContext(ctx);

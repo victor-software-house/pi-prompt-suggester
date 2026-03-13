@@ -31,21 +31,23 @@ export class SuggestionEngine {
 		seed: SeedArtifact | null,
 		steering: SteeringSlice,
 		settings?: ModelInvocationSettings,
+		overrideConfig?: PromptSuggesterConfig,
 	): Promise<SuggestionResult> {
-		if (this.deps.config.suggestion.fastPathContinueOnError && turn.status !== "success") {
+		const config = overrideConfig ?? this.deps.config;
+		if (config.suggestion.fastPathContinueOnError && turn.status !== "success") {
 			return {
 				kind: "suggestion",
 				text: "continue",
 			};
 		}
 
-		const context = this.deps.promptContextBuilder.build(turn, seed, steering);
+		const context = this.deps.promptContextBuilder.build(turn, seed, steering, config);
 		const raw = await this.deps.modelClient.generateSuggestion(context, settings);
-		const normalized = normalizeSuggestion(raw.text, this.deps.config.suggestion.maxSuggestionChars);
-		if (!normalized || normalized === this.deps.config.suggestion.noSuggestionToken) {
+		const normalized = normalizeSuggestion(raw.text, config.suggestion.maxSuggestionChars);
+		if (!normalized || normalized === config.suggestion.noSuggestionToken) {
 			return {
 				kind: "no_suggestion",
-				text: this.deps.config.suggestion.noSuggestionToken,
+				text: config.suggestion.noSuggestionToken,
 				usage: raw.usage,
 			};
 		}

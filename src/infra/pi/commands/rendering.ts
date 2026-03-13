@@ -45,6 +45,7 @@ export function renderStatus(
 	state: Awaited<ReturnType<AppComposition["stores"]["stateStore"]["load"]>>,
 	config: PromptSuggesterConfig,
 	ctx?: ExtensionContext,
+	activeVariantName?: string,
 ): string {
 	const steeringSummary = {
 		exact: state.steeringHistory.filter((event) => event.classification === "accepted_exact").length,
@@ -67,6 +68,7 @@ export function renderStatus(
 		`- implementation status: ${seed?.implementationStatusSummary?.slice(0, 140) ?? "(none)"}`,
 		`- active session model: ${activeModel}`,
 		`- config schemaVersion: ${config.schemaVersion}`,
+		`- active variant: ${activeVariantName ?? "default"}`,
 		`- custom instruction: ${summarizeInstruction(config.suggestion.customInstruction)}`,
 		`- models (config): seeder=${config.inference.seederModel}, suggester=${config.inference.suggesterModel}`,
 		`- thinking (config): seeder=${config.inference.seederThinking}, suggester=${config.inference.suggesterThinking}`,

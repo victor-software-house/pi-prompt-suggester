@@ -1,5 +1,6 @@
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import type { PromptSuggesterConfig } from "../../config/types.js";
+import type { SuggesterVariantStore } from "./suggester-variant-store.js";
 import { getConfiguredModelDisplay } from "./display.js";
 import type { RuntimeRef } from "./runtime-ref.js";
 
@@ -24,9 +25,10 @@ export interface UiContextLike {
 export function createUiContext(params: {
 	runtimeRef: RuntimeRef;
 	config: PromptSuggesterConfig;
+	variantStore?: SuggesterVariantStore;
 	getSessionThinkingLevel: () => string;
 }): UiContextLike {
-	const { runtimeRef, config, getSessionThinkingLevel } = params;
+	const { runtimeRef, config, variantStore, getSessionThinkingLevel } = params;
 	return {
 		getContext: () => runtimeRef.getContext(),
 		getEpoch: () => runtimeRef.getEpoch(),
@@ -36,13 +38,15 @@ export function createUiContext(params: {
 		setPanelSuggestionStatus: (text) => runtimeRef.setPanelSuggestionStatus(text),
 		getPanelLogStatus: () => runtimeRef.getPanelLogStatus(),
 		setPanelLogStatus: (status) => runtimeRef.setPanelLogStatus(status),
-		getSuggesterModelDisplay: () =>
-			getConfiguredModelDisplay({
+		getSuggesterModelDisplay: () => {
+			const effectiveConfig = variantStore?.getEffectiveConfig(config) ?? config;
+			return getConfiguredModelDisplay({
 				ctx: runtimeRef.getContext(),
-				configuredModel: config.inference.suggesterModel,
-				configuredThinking: config.inference.suggesterThinking,
+				configuredModel: effectiveConfig.inference.suggesterModel,
+				configuredThinking: effectiveConfig.inference.suggesterThinking,
 				getSessionThinkingLevel,
-			}),
+			});
+		},
 		prefillOnlyWhenEditorEmpty: config.suggestion.prefillOnlyWhenEditorEmpty,
 	};
 }
