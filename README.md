@@ -6,7 +6,7 @@
 
 It uses recent conversation context plus a lightweight project intent seed so suggestions stay aligned with what the user has been doing in the current repo.
 
-<img src="./assets/suggester-example.png" alt="pi-prompt-suggester screenshot" width="560" />
+<img src="./assets/suggester-example.png" alt="pi-prompt-suggester screenshot" width="400" />
 
 ## Highlights
 
