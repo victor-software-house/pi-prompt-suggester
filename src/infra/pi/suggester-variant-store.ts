@@ -4,10 +4,12 @@ import type { InferenceDefault, PromptSuggesterConfig, ThinkingLevel } from "../
 import { readJsonIfExists, writeJson } from "../storage/json-file.js";
 
 export interface SuggesterVariant {
-	customInstruction?: string;
 	suggesterModel?: string;
 	suggesterThinking?: ThinkingLevel | InferenceDefault;
 	maxSuggestionChars?: number;
+	maxRecentUserPrompts?: number;
+	maxRecentUserPromptChars?: number;
+	maxChangedExamples?: number;
 }
 
 interface VariantFile {
@@ -47,16 +49,20 @@ function isThinkingValue(value: unknown): value is ThinkingLevel | InferenceDefa
 	return ["minimal", "low", "medium", "high", "xhigh", "session-default"].includes(String(value));
 }
 
+function isPositiveInteger(value: unknown): value is number {
+	return typeof value === "number" && Number.isInteger(value) && value > 0;
+}
+
 function normalizeVariant(value: unknown): SuggesterVariant {
 	if (!value || typeof value !== "object" || Array.isArray(value)) return {};
 	const raw = value as Record<string, unknown>;
 	const next: SuggesterVariant = {};
-	if (typeof raw.customInstruction === "string") next.customInstruction = raw.customInstruction;
 	if (typeof raw.suggesterModel === "string" && raw.suggesterModel.trim()) next.suggesterModel = raw.suggesterModel.trim();
 	if (isThinkingValue(raw.suggesterThinking)) next.suggesterThinking = raw.suggesterThinking;
-	if (typeof raw.maxSuggestionChars === "number" && Number.isInteger(raw.maxSuggestionChars) && raw.maxSuggestionChars > 0) {
-		next.maxSuggestionChars = raw.maxSuggestionChars;
-	}
+	if (isPositiveInteger(raw.maxSuggestionChars)) next.maxSuggestionChars = raw.maxSuggestionChars;
+	if (isPositiveInteger(raw.maxRecentUserPrompts)) next.maxRecentUserPrompts = raw.maxRecentUserPrompts;
+	if (isPositiveInteger(raw.maxRecentUserPromptChars)) next.maxRecentUserPromptChars = raw.maxRecentUserPromptChars;
+	if (isPositiveInteger(raw.maxChangedExamples)) next.maxChangedExamples = raw.maxChangedExamples;
 	return next;
 }
 
@@ -159,10 +165,14 @@ export class SuggesterVariantStore {
 		const config = cloneConfig(baseConfig);
 		const variant = this.state.variants[variantName];
 		if (!variant) return config;
-		if (variant.customInstruction !== undefined) config.suggestion.customInstruction = variant.customInstruction;
 		if (variant.suggesterModel !== undefined) config.inference.suggesterModel = variant.suggesterModel;
 		if (variant.suggesterThinking !== undefined) config.inference.suggesterThinking = variant.suggesterThinking;
 		if (variant.maxSuggestionChars !== undefined) config.suggestion.maxSuggestionChars = variant.maxSuggestionChars;
+		if (variant.maxRecentUserPrompts !== undefined) config.suggestion.maxRecentUserPrompts = variant.maxRecentUserPrompts;
+		if (variant.maxRecentUserPromptChars !== undefined) {
+			config.suggestion.maxRecentUserPromptChars = variant.maxRecentUserPromptChars;
+		}
+		if (variant.maxChangedExamples !== undefined) config.steering.maxChangedExamples = variant.maxChangedExamples;
 		return config;
 	}
 

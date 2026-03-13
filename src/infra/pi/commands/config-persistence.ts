@@ -31,13 +31,25 @@ export class SuggesterConfigPersistence {
 		Object.assign(this.composition.config, next);
 	}
 
+	public async readOverride(scope: ConfigScope): Promise<Record<string, unknown>> {
+		return await readObjectJsonIfExists(this.overridePathForScope(scope));
+	}
+
+	public async readOverrideValue(scope: ConfigScope, configPath: string): Promise<unknown> {
+		const raw = await this.readOverride(scope);
+		let cursor: unknown = raw;
+		for (const segment of configPath.split(".").map((part) => part.trim()).filter(Boolean)) {
+			if (!cursor || typeof cursor !== "object" || Array.isArray(cursor) || !(segment in cursor)) {
+				return undefined;
+			}
+			cursor = (cursor as Record<string, unknown>)[segment];
+		}
+		return cursor;
+	}
+
 	public async readOverrideCustomInstruction(scope: ConfigScope): Promise<string> {
-		const raw = await readObjectJsonIfExists(this.overridePathForScope(scope));
-		const suggestion = raw.suggestion;
-		if (!suggestion || typeof suggestion !== "object" || Array.isArray(suggestion)) return "";
-		return typeof (suggestion as { customInstruction?: unknown }).customInstruction === "string"
-			? String((suggestion as { customInstruction?: unknown }).customInstruction)
-			: "";
+		const value = await this.readOverrideValue(scope, "suggestion.customInstruction");
+		return typeof value === "string" ? value : "";
 	}
 
 	public async writeValue(scope: ConfigScope, configPath: string, value: unknown): Promise<void> {

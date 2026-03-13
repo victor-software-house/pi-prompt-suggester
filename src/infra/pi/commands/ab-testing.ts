@@ -11,11 +11,13 @@ import { getModelSelectionOptions, resolveModelRef, SESSION_DEFAULT, THINKING_LE
 
 function summarizeVariant(variant: SuggesterVariant): string {
 	const parts: string[] = [];
-	if (variant.customInstruction?.trim()) parts.push(`instr: ${variant.customInstruction.trim().replace(/\s+/g, " ").slice(0, 36)}`);
 	if (variant.suggesterModel) parts.push(`model: ${variant.suggesterModel}`);
 	if (variant.suggesterThinking) parts.push(`thinking: ${variant.suggesterThinking}`);
-	if (variant.maxSuggestionChars) parts.push(`max: ${variant.maxSuggestionChars}`);
-	return parts.join(" · ") || "inherits defaults";
+	if (variant.maxSuggestionChars) parts.push(`chars: ${variant.maxSuggestionChars}`);
+	if (variant.maxRecentUserPrompts) parts.push(`recent: ${variant.maxRecentUserPrompts}`);
+	if (variant.maxRecentUserPromptChars) parts.push(`prompt chars: ${variant.maxRecentUserPromptChars}`);
+	if (variant.maxChangedExamples) parts.push(`changed: ${variant.maxChangedExamples}`);
+	return parts.join(" · ") || "inherits base settings";
 }
 
 async function promptPositiveIntOrClear(
@@ -72,15 +74,17 @@ async function editVariantUi(
 
 	while (true) {
 		const items = [
-			{ value: "customInstruction", label: "Custom instruction", description: variant.customInstruction?.trim() ? variant.customInstruction.trim().replace(/\s+/g, " ").slice(0, 60) : "inherit" },
-			{ value: "suggesterModel", label: "Suggester model", description: variant.suggesterModel ?? "inherit" },
-			{ value: "suggesterThinking", label: "Suggester thinking", description: variant.suggesterThinking ?? "inherit" },
-			{ value: "maxSuggestionChars", label: "Max suggestion chars", description: variant.maxSuggestionChars ? String(variant.maxSuggestionChars) : "inherit" },
+			{ value: "suggesterModel", label: "Suggester model", description: variant.suggesterModel ?? "inherit from base suggester settings" },
+			{ value: "suggesterThinking", label: "Suggester thinking", description: variant.suggesterThinking ?? "inherit from base suggester settings" },
+			{ value: "maxSuggestionChars", label: "Max suggestion chars", description: variant.maxSuggestionChars ? String(variant.maxSuggestionChars) : "inherit from base suggester settings" },
+			{ value: "maxRecentUserPrompts", label: "Recent user prompts", description: variant.maxRecentUserPrompts ? String(variant.maxRecentUserPrompts) : "inherit from base suggester settings" },
+			{ value: "maxRecentUserPromptChars", label: "Recent user prompt chars", description: variant.maxRecentUserPromptChars ? String(variant.maxRecentUserPromptChars) : "inherit from base suggester settings" },
+			{ value: "maxChangedExamples", label: "Changed examples in prompt", description: variant.maxChangedExamples ? String(variant.maxChangedExamples) : "inherit from base suggester settings" },
 			{ value: "save", label: "Save", description: "Apply variant changes" },
 			{ value: "back", label: "Back", description: "Discard / leave editor" },
 		];
 		const action = await ctx.ui.custom<string | null>((tui, theme, _kb, done) => {
-			const selectList = new SelectList(items, Math.min(items.length + 1, 10), {
+			const selectList = new SelectList(items, Math.min(items.length + 1, 12), {
 				selectedPrefix: (text) => theme.fg("accent", text),
 				selectedText: (text) => theme.fg("accent", text),
 				description: (text) => theme.fg("muted", text),
@@ -92,8 +96,8 @@ async function editVariantUi(
 			return {
 				render(width: number): string[] {
 					return [
-						theme.fg("accent", theme.bold(`Edit variant: ${variantName}`)),
-						theme.fg("dim", "Enter select • Esc back"),
+						theme.fg("accent", theme.bold(`Edit variant preset: ${variantName}`)),
+						theme.fg("dim", "These A/B settings only affect suggestion generation. Blank values inherit from the base suggester settings."),
 						"",
 						...selectList.render(width),
 					];
@@ -115,12 +119,6 @@ async function editVariantUi(
 			return;
 		}
 
-		if (action === "customInstruction") {
-			const next = await ctx.ui.editor(`Custom instruction for ${variantName} (blank = inherit)`, variant.customInstruction ?? "");
-			if (next === undefined) continue;
-			variant.customInstruction = next.trim() ? next : undefined;
-			continue;
-		}
 		if (action === "suggesterModel") {
 			const next = await promptVariantModel(ctx, variant.suggesterModel);
 			if (next === undefined) continue;
@@ -137,6 +135,28 @@ async function editVariantUi(
 			const next = await promptPositiveIntOrClear(ctx, `Max suggestion chars for ${variantName} (blank = inherit)`, variant.maxSuggestionChars);
 			if (next === undefined) continue;
 			variant.maxSuggestionChars = next ?? undefined;
+			continue;
+		}
+		if (action === "maxRecentUserPrompts") {
+			const next = await promptPositiveIntOrClear(ctx, `Recent user prompts for ${variantName} (blank = inherit)`, variant.maxRecentUserPrompts);
+			if (next === undefined) continue;
+			variant.maxRecentUserPrompts = next ?? undefined;
+			continue;
+		}
+		if (action === "maxRecentUserPromptChars") {
+			const next = await promptPositiveIntOrClear(
+				ctx,
+				`Recent user prompt chars for ${variantName} (blank = inherit)`,
+				variant.maxRecentUserPromptChars,
+			);
+			if (next === undefined) continue;
+			variant.maxRecentUserPromptChars = next ?? undefined;
+			continue;
+		}
+		if (action === "maxChangedExamples") {
+			const next = await promptPositiveIntOrClear(ctx, `Changed examples in prompt for ${variantName} (blank = inherit)`, variant.maxChangedExamples);
+			if (next === undefined) continue;
+			variant.maxChangedExamples = next ?? undefined;
 		}
 	}
 }

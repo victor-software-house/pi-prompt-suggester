@@ -6,6 +6,8 @@
 
 It uses recent conversation context plus a lightweight project intent seed so suggestions stay aligned with what the user has been doing in the current repo.
 
+![pi-prompt-suggester screenshot](./assets/suggester-example.png)
+
 ## Highlights
 
 - next-prompt suggestions as ghost text in the editor

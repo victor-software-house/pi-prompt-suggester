@@ -40,19 +40,24 @@ test("variant store applies active variant overrides to effective config", async
 	await store.init();
 	await store.createVariant("terse");
 	await store.updateVariant("terse", {
-		customInstruction: "Keep it terse.",
 		suggesterModel: "openai/gpt-5",
 		suggesterThinking: "high",
 		maxSuggestionChars: 42,
+		maxRecentUserPrompts: 7,
+		maxRecentUserPromptChars: 180,
+		maxChangedExamples: 2,
 	});
 	await store.setActiveVariant("terse");
 
 	const effective = store.getEffectiveConfig(baseConfig);
 	assert.equal(store.getActiveVariantName(), "terse");
-	assert.equal(effective.suggestion.customInstruction, "Keep it terse.");
+	assert.equal(effective.suggestion.customInstruction, "base");
 	assert.equal(effective.inference.suggesterModel, "openai/gpt-5");
 	assert.equal(effective.inference.suggesterThinking, "high");
 	assert.equal(effective.suggestion.maxSuggestionChars, 42);
+	assert.equal(effective.suggestion.maxRecentUserPrompts, 7);
+	assert.equal(effective.suggestion.maxRecentUserPromptChars, 180);
+	assert.equal(effective.steering.maxChangedExamples, 2);
 	assert.equal(effective.inference.seederModel, "session-default");
 });
 
@@ -61,7 +66,13 @@ test("variant store normalizes invalid files and preserves default variant", asy
 	await mkdir(path.join(dir, ".pi", "suggester"), { recursive: true });
 	await writeFile(
 		path.join(dir, ".pi", "suggester", "variants.json"),
-		JSON.stringify({ activeVariant: "missing", variants: { "": { bad: true }, custom: { maxSuggestionChars: -1 } } }),
+		JSON.stringify({
+			activeVariant: "missing",
+			variants: {
+				"": { bad: true },
+				custom: { maxSuggestionChars: -1, customInstruction: "legacy" },
+			},
+		}),
 		"utf8",
 	);
 	const store = new SuggesterVariantStore(dir);

@@ -18,6 +18,27 @@ export async function handleSettingsUiCommand(
 	let activeScope: ConfigScope = "project";
 	const thinkingOptions = [...THINKING_LEVELS, SESSION_DEFAULT];
 
+	const formatScopeName = (scope: ConfigScope): string => scope === "project" ? "Project override" : "User override";
+	const formatValue = (value: unknown): string => {
+		if (typeof value === "string") {
+			const trimmed = value.trim();
+			return trimmed ? trimmed.replace(/\s+/g, " ").slice(0, 80) : "(empty)";
+		}
+		if (typeof value === "boolean") return value ? "on" : "off";
+		if (typeof value === "number") return String(value);
+		if (value === undefined) return "inherit";
+		return JSON.stringify(value);
+	};
+	const describeScopedValue = async (configPath: string, effectiveValue: unknown): Promise<string> => {
+		const overrideValue = await persistence.readOverrideValue(activeScope, configPath);
+		if (overrideValue === undefined) return `inherit → ${formatValue(effectiveValue)}`;
+		return `${formatValue(overrideValue)} (${formatScopeName(activeScope).toLowerCase()})`;
+	};
+	const getScopedEditorValue = async <T>(configPath: string, effectiveValue: T): Promise<T> => {
+		const overrideValue = await persistence.readOverrideValue(activeScope, configPath);
+		return (overrideValue === undefined ? effectiveValue : (overrideValue as T));
+	};
+
 	const pickMenuAction = async (): Promise<string | null> => {
 		const items = [
 			{
@@ -28,7 +49,7 @@ export async function handleSettingsUiCommand(
 			{
 				value: "ab.manageVariants",
 				label: "Manage variants",
-				description: `${composition.stores.variantStore.listVariants().length} variants`,
+				description: `${composition.stores.variantStore.listVariants().length} variants • model, thinking, chars, recent prompts, changed examples`,
 			},
 			{
 				value: "ab.compareVariants",
@@ -42,88 +63,100 @@ export async function handleSettingsUiCommand(
 			},
 			{
 				value: "scope",
-				label: "Write scope",
-				description: `${activeScope} → ${persistence.overridePathForScope(activeScope)}`,
+				label: "Base settings scope",
+				description: `${formatScopeName(activeScope)} → ${persistence.overridePathForScope(activeScope)}`,
 			},
 			{
 				value: "suggestion.customInstruction",
 				label: "Custom instruction",
-				description: summarizeInstruction(composition.config.suggestion.customInstruction),
+				description: await describeScopedValue(
+					"suggestion.customInstruction",
+					summarizeInstruction(composition.config.suggestion.customInstruction),
+				),
 			},
 			{
 				value: "suggestion.maxSuggestionChars",
 				label: "Max suggestion chars",
-				description: String(composition.config.suggestion.maxSuggestionChars),
+				description: await describeScopedValue("suggestion.maxSuggestionChars", composition.config.suggestion.maxSuggestionChars),
 			},
 			{
 				value: "suggestion.maxRecentUserPrompts",
 				label: "Recent user prompts",
-				description: String(composition.config.suggestion.maxRecentUserPrompts),
+				description: await describeScopedValue("suggestion.maxRecentUserPrompts", composition.config.suggestion.maxRecentUserPrompts),
 			},
 			{
 				value: "suggestion.maxRecentUserPromptChars",
 				label: "Recent user prompt chars",
-				description: String(composition.config.suggestion.maxRecentUserPromptChars),
+				description: await describeScopedValue(
+					"suggestion.maxRecentUserPromptChars",
+					composition.config.suggestion.maxRecentUserPromptChars,
+				),
 			},
 			{
 				value: "steering.maxChangedExamples",
 				label: "Changed examples in prompt",
-				description: String(composition.config.steering.maxChangedExamples),
+				description: await describeScopedValue("steering.maxChangedExamples", composition.config.steering.maxChangedExamples),
 			},
 			{
 				value: "suggestion.prefillOnlyWhenEditorEmpty",
 				label: "Ghost only on empty editor",
-				description: composition.config.suggestion.prefillOnlyWhenEditorEmpty ? "on" : "off",
+				description: await describeScopedValue(
+					"suggestion.prefillOnlyWhenEditorEmpty",
+					composition.config.suggestion.prefillOnlyWhenEditorEmpty,
+				),
 			},
 			{
 				value: "suggestion.fastPathContinueOnError",
 				label: "Fast-path continue on error",
-				description: composition.config.suggestion.fastPathContinueOnError ? "on" : "off",
+				description: await describeScopedValue(
+					"suggestion.fastPathContinueOnError",
+					composition.config.suggestion.fastPathContinueOnError,
+				),
 			},
 			{
 				value: "reseed.enabled",
 				label: "Automatic reseeding enabled",
-				description: composition.config.reseed.enabled ? "on" : "off",
+				description: await describeScopedValue("reseed.enabled", composition.config.reseed.enabled),
 			},
 			{
 				value: "reseed.checkOnSessionStart",
 				label: "Check staleness on session start",
-				description: composition.config.reseed.checkOnSessionStart ? "on" : "off",
+				description: await describeScopedValue("reseed.checkOnSessionStart", composition.config.reseed.checkOnSessionStart),
 			},
 			{
 				value: "reseed.checkAfterEveryTurn",
 				label: "Check staleness after every turn",
-				description: composition.config.reseed.checkAfterEveryTurn ? "on" : "off",
+				description: await describeScopedValue("reseed.checkAfterEveryTurn", composition.config.reseed.checkAfterEveryTurn),
 			},
 			{
 				value: "reseed.turnCheckInterval",
 				label: "Turn staleness check interval",
-				description: String(composition.config.reseed.turnCheckInterval),
+				description: await describeScopedValue("reseed.turnCheckInterval", composition.config.reseed.turnCheckInterval),
 			},
 			{
 				value: "inference.seederModel",
 				label: "Seeder model",
-				description: composition.config.inference.seederModel,
+				description: await describeScopedValue("inference.seederModel", composition.config.inference.seederModel),
 			},
 			{
 				value: "inference.suggesterModel",
 				label: "Suggester model",
-				description: composition.config.inference.suggesterModel,
+				description: await describeScopedValue("inference.suggesterModel", composition.config.inference.suggesterModel),
 			},
 			{
 				value: "inference.seederThinking",
 				label: "Seeder thinking",
-				description: composition.config.inference.seederThinking,
+				description: await describeScopedValue("inference.seederThinking", composition.config.inference.seederThinking),
 			},
 			{
 				value: "inference.suggesterThinking",
 				label: "Suggester thinking",
-				description: composition.config.inference.suggesterThinking,
+				description: await describeScopedValue("inference.suggesterThinking", composition.config.inference.suggesterThinking),
 			},
 			{
 				value: "reset",
-				label: `Reset ${activeScope} override`,
-				description: "Delete override file for current scope",
+				label: `Reset ${formatScopeName(activeScope)}`,
+				description: "Delete override file for the selected base scope",
 			},
 			{
 				value: "close",
@@ -135,7 +168,8 @@ export async function handleSettingsUiCommand(
 		return await ctx.ui.custom<string | null>((tui, theme, _kb, done) => {
 			const container = new Container();
 			container.addChild(new Text(theme.fg("accent", theme.bold("Suggester Settings")), 1, 0));
-			container.addChild(new Text(theme.fg("dim", `Editing ${activeScope} override • Enter select • Esc close`), 1, 0));
+			container.addChild(new Text(theme.fg("accent", `${formatScopeName(activeScope)} • ${persistence.overridePathForScope(activeScope)}`), 1, 0));
+			container.addChild(new Text(theme.fg("dim", "Base settings write to the selected scope. Variants are edited separately below. Enter select • Esc close"), 1, 0));
 			const selectList = new SelectList(items, Math.min(items.length + 1, 16), {
 				selectedPrefix: (text) => theme.fg("accent", text),
 				selectedText: (text) => theme.fg("accent", text),
@@ -227,7 +261,7 @@ export async function handleSettingsUiCommand(
 			}
 
 			if (action === "scope") {
-				const selected = await ctx.ui.select("Write overrides to which scope?", ["project", "user"]);
+				const selected = await ctx.ui.select("Edit which base settings scope?", ["project", "user"]);
 				if (selected === "project" || selected === "user") activeScope = selected;
 				continue;
 			}
@@ -244,10 +278,11 @@ export async function handleSettingsUiCommand(
 			}
 
 			if (action === "suggestion.customInstruction") {
-				const currentValue = activeScope === "project"
-					? composition.config.suggestion.customInstruction
-					: await persistence.readOverrideCustomInstruction(activeScope);
-				const next = await ctx.ui.editor(`Custom suggester instruction (${activeScope} override)`, currentValue);
+				const currentValue = await getScopedEditorValue(
+					"suggestion.customInstruction",
+					composition.config.suggestion.customInstruction,
+				);
+				const next = await ctx.ui.editor(`Custom suggester instruction (${formatScopeName(activeScope)})`, currentValue);
 				if (next === undefined) continue;
 				await persistence.writeValue(activeScope, action, next);
 				ctx.ui.notify(
@@ -260,7 +295,14 @@ export async function handleSettingsUiCommand(
 			}
 
 			if (action === "suggestion.prefillOnlyWhenEditorEmpty") {
-				const selected = await ctx.ui.select("Ghost only on empty editor?", ["true", "false"]);
+				const currentValue = await getScopedEditorValue(
+					"suggestion.prefillOnlyWhenEditorEmpty",
+					composition.config.suggestion.prefillOnlyWhenEditorEmpty,
+				);
+				const selected = await ctx.ui.select(
+					`Ghost only on empty editor? (${formatScopeName(activeScope)}, current: ${currentValue ? "true" : "false"})`,
+					["true", "false"],
+				);
 				if (!selected) continue;
 				await persistence.writeValue(activeScope, action, selected === "true");
 				ctx.ui.notify(`Updated ${action} in ${activeScope} override.`, "info");
@@ -268,7 +310,14 @@ export async function handleSettingsUiCommand(
 			}
 
 			if (action === "suggestion.fastPathContinueOnError") {
-				const selected = await ctx.ui.select("Fast-path continue on error?", ["true", "false"]);
+				const currentValue = await getScopedEditorValue(
+					"suggestion.fastPathContinueOnError",
+					composition.config.suggestion.fastPathContinueOnError,
+				);
+				const selected = await ctx.ui.select(
+					`Fast-path continue on error? (${formatScopeName(activeScope)}, current: ${currentValue ? "true" : "false"})`,
+					["true", "false"],
+				);
 				if (!selected) continue;
 				await persistence.writeValue(activeScope, action, selected === "true");
 				ctx.ui.notify(`Updated ${action} in ${activeScope} override.`, "info");
@@ -276,7 +325,18 @@ export async function handleSettingsUiCommand(
 			}
 
 			if (action === "reseed.enabled" || action === "reseed.checkOnSessionStart" || action === "reseed.checkAfterEveryTurn") {
-				const selected = await ctx.ui.select(`${action}?`, ["true", "false"]);
+				const currentValue = await getScopedEditorValue<boolean>(
+					action,
+					action === "reseed.enabled"
+						? composition.config.reseed.enabled
+						: action === "reseed.checkOnSessionStart"
+							? composition.config.reseed.checkOnSessionStart
+							: composition.config.reseed.checkAfterEveryTurn,
+				);
+				const selected = await ctx.ui.select(
+					`${action}? (${formatScopeName(activeScope)}, current: ${currentValue ? "true" : "false"})`,
+					["true", "false"],
+				);
 				if (!selected) continue;
 				await persistence.writeValue(activeScope, action, selected === "true");
 				ctx.ui.notify(`Updated ${action} in ${activeScope} override.`, "info");
@@ -285,8 +345,8 @@ export async function handleSettingsUiCommand(
 
 			if (action === "reseed.turnCheckInterval") {
 				const next = await promptNonNegativeInt(
-					"Turn staleness check interval (0 disables turn checks)",
-					composition.config.reseed.turnCheckInterval,
+					`Turn staleness check interval (${formatScopeName(activeScope)}; 0 disables turn checks)`,
+					await getScopedEditorValue("reseed.turnCheckInterval", composition.config.reseed.turnCheckInterval),
 				);
 				if (next === undefined) continue;
 				await persistence.writeValue(activeScope, action, next);
@@ -295,7 +355,10 @@ export async function handleSettingsUiCommand(
 			}
 
 			if (action === "suggestion.maxSuggestionChars") {
-				const next = await promptPositiveInt("Max suggestion chars", composition.config.suggestion.maxSuggestionChars);
+				const next = await promptPositiveInt(
+					`Max suggestion chars (${formatScopeName(activeScope)})`,
+					await getScopedEditorValue("suggestion.maxSuggestionChars", composition.config.suggestion.maxSuggestionChars),
+				);
 				if (next === undefined) continue;
 				await persistence.writeValue(activeScope, action, next);
 				ctx.ui.notify(`Updated ${action} in ${activeScope} override.`, "info");
@@ -303,7 +366,10 @@ export async function handleSettingsUiCommand(
 			}
 
 			if (action === "suggestion.maxRecentUserPrompts") {
-				const next = await promptPositiveInt("Recent user prompts", composition.config.suggestion.maxRecentUserPrompts);
+				const next = await promptPositiveInt(
+					`Recent user prompts (${formatScopeName(activeScope)})`,
+					await getScopedEditorValue("suggestion.maxRecentUserPrompts", composition.config.suggestion.maxRecentUserPrompts),
+				);
 				if (next === undefined) continue;
 				await persistence.writeValue(activeScope, action, next);
 				ctx.ui.notify(`Updated ${action} in ${activeScope} override.`, "info");
@@ -312,8 +378,11 @@ export async function handleSettingsUiCommand(
 
 			if (action === "suggestion.maxRecentUserPromptChars") {
 				const next = await promptPositiveInt(
-					"Recent user prompt chars",
-					composition.config.suggestion.maxRecentUserPromptChars,
+					`Recent user prompt chars (${formatScopeName(activeScope)})`,
+					await getScopedEditorValue(
+						"suggestion.maxRecentUserPromptChars",
+						composition.config.suggestion.maxRecentUserPromptChars,
+					),
 				);
 				if (next === undefined) continue;
 				await persistence.writeValue(activeScope, action, next);
@@ -322,7 +391,10 @@ export async function handleSettingsUiCommand(
 			}
 
 			if (action === "steering.maxChangedExamples") {
-				const next = await promptPositiveInt("Changed examples in prompt", composition.config.steering.maxChangedExamples);
+				const next = await promptPositiveInt(
+					`Changed examples in prompt (${formatScopeName(activeScope)})`,
+					await getScopedEditorValue("steering.maxChangedExamples", composition.config.steering.maxChangedExamples),
+				);
 				if (next === undefined) continue;
 				await persistence.writeValue(activeScope, action, next);
 				ctx.ui.notify(`Updated ${action} in ${activeScope} override.`, "info");
@@ -330,7 +402,10 @@ export async function handleSettingsUiCommand(
 			}
 
 			if (action === "inference.seederModel") {
-				const next = await promptModel("Seeder model (provider/model or session-default)", composition.config.inference.seederModel);
+				const next = await promptModel(
+					`Seeder model (${formatScopeName(activeScope)}; provider/model or session-default)`,
+					await getScopedEditorValue("inference.seederModel", composition.config.inference.seederModel),
+				);
 				if (next === undefined) continue;
 				await persistence.writeValue(activeScope, action, next);
 				ctx.ui.notify(`Updated ${action} in ${activeScope} override.`, "info");
@@ -339,8 +414,8 @@ export async function handleSettingsUiCommand(
 
 			if (action === "inference.suggesterModel") {
 				const next = await promptModel(
-					"Suggester model (provider/model or session-default)",
-					composition.config.inference.suggesterModel,
+					`Suggester model (${formatScopeName(activeScope)}; provider/model or session-default)`,
+					await getScopedEditorValue("inference.suggesterModel", composition.config.inference.suggesterModel),
 				);
 				if (next === undefined) continue;
 				await persistence.writeValue(activeScope, action, next);
@@ -349,10 +424,13 @@ export async function handleSettingsUiCommand(
 			}
 
 			if (action === "inference.seederThinking" || action === "inference.suggesterThinking") {
-				const current = action === "inference.seederThinking"
-					? composition.config.inference.seederThinking
-					: composition.config.inference.suggesterThinking;
-				const selected = await ctx.ui.select(`${action} (current: ${current})`, thinkingOptions);
+				const current = await getScopedEditorValue(
+					action,
+					action === "inference.seederThinking"
+						? composition.config.inference.seederThinking
+						: composition.config.inference.suggesterThinking,
+				);
+				const selected = await ctx.ui.select(`${action} (${formatScopeName(activeScope)}, current: ${current})`, thinkingOptions);
 				if (!selected) continue;
 				await persistence.writeValue(activeScope, action, selected);
 				ctx.ui.notify(`Updated ${action} in ${activeScope} override.`, "info");
