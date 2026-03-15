@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { TranscriptPromptContextBuilder } from "../../dist/app/services/transcript-prompt-context-builder.js";
 
 const baseConfig = {
-	schemaVersion: 6,
+	schemaVersion: 7,
 	seed: { maxDiffChars: 3000 },
 	reseed: { enabled: true, checkOnSessionStart: true, checkAfterEveryTurn: true, turnCheckInterval: 10 },
 	suggestion: {
@@ -20,6 +20,11 @@ const baseConfig = {
 		maxAbortContextChars: 280,
 		maxSuggestionChars: 200,
 		prefillOnlyWhenEditorEmpty: true,
+		strategy: "compact",
+		transcriptMaxContextPercent: 70,
+		transcriptMaxMessages: 120,
+		transcriptMaxChars: 120000,
+		transcriptRolloutPercent: 100,
 	},
 	steering: { historyWindow: 20, acceptedThreshold: 0.82, maxChangedExamples: 2 },
 	logging: { level: "info" },

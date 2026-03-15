@@ -12,6 +12,7 @@ import { PiModelClient } from "../infra/model/pi-model-client.js";
 import { SystemClock } from "../infra/clock/system-clock.js";
 import { StalenessChecker } from "../app/services/staleness-checker.js";
 import { PromptContextBuilder } from "../app/services/prompt-context-builder.js";
+import { TranscriptPromptContextBuilder } from "../app/services/transcript-prompt-context-builder.js";
 import { SuggestionEngine } from "../app/services/suggestion-engine.js";
 import { SteeringClassifier } from "../app/services/steering-classifier.js";
 import { ReseedRunner } from "../app/orchestrators/reseed-runner.js";
@@ -23,6 +24,7 @@ import { SessionStateStore } from "../infra/pi/session-state-store.js";
 import { RuntimeRef } from "../infra/pi/runtime-ref.js";
 import { createUiContext } from "../infra/pi/ui-context.js";
 import { SuggesterVariantStore } from "../infra/pi/suggester-variant-store.js";
+import { PiSessionTranscriptProvider } from "../infra/pi/session-transcript-provider.js";
 
 export interface AppComposition {
 	config: PromptSuggesterConfig;
@@ -80,10 +82,15 @@ export async function createAppComposition(pi: ExtensionAPI, cwd: string = proce
 	});
 
 	const promptContextBuilder = new PromptContextBuilder(config);
+	const transcriptPromptContextBuilder = new TranscriptPromptContextBuilder(
+		config,
+		new PiSessionTranscriptProvider(runtimeRef),
+	);
 	const suggestionEngine = new SuggestionEngine({
 		config,
 		modelClient,
 		promptContextBuilder,
+		transcriptPromptContextBuilder,
 	});
 	const steeringClassifier = new SteeringClassifier(config);
 

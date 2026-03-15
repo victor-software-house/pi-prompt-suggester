@@ -6,7 +6,7 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { SuggesterVariantStore } from "../../../dist/infra/pi/suggester-variant-store.js";
 
 const baseConfig = {
-	schemaVersion: 6,
+	schemaVersion: 7,
 	seed: { maxDiffChars: 3000 },
 	reseed: { enabled: true, checkOnSessionStart: true, checkAfterEveryTurn: true, turnCheckInterval: 10 },
 	suggestion: {
@@ -23,6 +23,11 @@ const baseConfig = {
 		maxAbortContextChars: 280,
 		maxSuggestionChars: 200,
 		prefillOnlyWhenEditorEmpty: true,
+		strategy: "compact",
+		transcriptMaxContextPercent: 70,
+		transcriptMaxMessages: 120,
+		transcriptMaxChars: 120000,
+		transcriptRolloutPercent: 100,
 	},
 	steering: { historyWindow: 20, acceptedThreshold: 0.82, maxChangedExamples: 3 },
 	logging: { level: "info" },
@@ -40,12 +45,17 @@ test("variant store applies active variant overrides to effective config", async
 	await store.init();
 	await store.createVariant("terse");
 	await store.updateVariant("terse", {
+		strategy: "transcript-cache",
 		suggesterModel: "openai/gpt-5",
 		suggesterThinking: "high",
 		maxSuggestionChars: 42,
 		maxRecentUserPrompts: 7,
 		maxRecentUserPromptChars: 180,
 		maxChangedExamples: 2,
+		transcriptMaxContextPercent: 65,
+		transcriptMaxMessages: 80,
+		transcriptMaxChars: 80000,
+		transcriptRolloutPercent: 50,
 	});
 	await store.setActiveVariant("terse");
 
@@ -54,10 +64,15 @@ test("variant store applies active variant overrides to effective config", async
 	assert.equal(effective.suggestion.customInstruction, "base");
 	assert.equal(effective.inference.suggesterModel, "openai/gpt-5");
 	assert.equal(effective.inference.suggesterThinking, "high");
+	assert.equal(effective.suggestion.strategy, "transcript-cache");
 	assert.equal(effective.suggestion.maxSuggestionChars, 42);
 	assert.equal(effective.suggestion.maxRecentUserPrompts, 7);
 	assert.equal(effective.suggestion.maxRecentUserPromptChars, 180);
 	assert.equal(effective.steering.maxChangedExamples, 2);
+	assert.equal(effective.suggestion.transcriptMaxContextPercent, 65);
+	assert.equal(effective.suggestion.transcriptMaxMessages, 80);
+	assert.equal(effective.suggestion.transcriptMaxChars, 80000);
+	assert.equal(effective.suggestion.transcriptRolloutPercent, 50);
 	assert.equal(effective.inference.seederModel, "session-default");
 });
 

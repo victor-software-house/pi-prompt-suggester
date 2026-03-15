@@ -2,11 +2,12 @@ import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
-import { completeSimple, type Model, type UserMessage } from "@mariozechner/pi-ai";
+import { completeSimple, type Message, type Model, type UserMessage } from "@mariozechner/pi-ai";
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
-import type { ModelClient, ModelInvocationSettings } from "../../app/ports/model-client.js";
+import type { ModelClient, ModelInvocationSettings, SuggestionModelContext } from "../../app/ports/model-client.js";
 import type { Logger } from "../../app/ports/logger.js";
 import type { SuggestionPromptContext } from "../../app/services/prompt-context-builder.js";
+import type { TranscriptSuggestionPromptContext } from "../../app/services/transcript-prompt-context-builder.js";
 import type { SuggestionUsage } from "../../domain/suggestion.js";
 import { accumulateUsage, createEmptyUsage } from "../../domain/usage.js";
 import {
@@ -18,6 +19,7 @@ import {
 } from "../../domain/seed.js";
 import { renderForcedSeederFinalPrompt, renderSeederSystemPrompt, renderSeederUserPrompt } from "../../prompts/seeder-template.js";
 import { renderSuggestionPrompt } from "../../prompts/suggestion-template.js";
+import { renderTranscriptSuggestionPrompt } from "../../prompts/transcript-suggestion-template.js";
 
 const execFileAsync = promisify(execFile);
 const IGNORED_DIRS = new Set([".git", "node_modules", ".pi", "dist", "build", "coverage"]);
@@ -76,6 +78,10 @@ function extractText(content: unknown): string {
 		})
 		.join("\n")
 		.trim();
+}
+
+function isTranscriptSuggestionContext(context: SuggestionModelContext): context is TranscriptSuggestionPromptContext {
+	return "transcriptMessages" in context;
 }
 
 function tryParseObjectJson(text: string): Record<string, unknown> | undefined {
@@ -453,16 +459,41 @@ export class PiModelClient implements ModelClient {
 	}
 
 	public async generateSuggestion(
-		context: SuggestionPromptContext,
+		context: SuggestionModelContext,
 		settings?: ModelInvocationSettings,
 	): Promise<{ text: string; usage?: SuggestionUsage }> {
-		return await this.completePrompt(renderSuggestionPrompt(context), undefined, settings);
+		if (isTranscriptSuggestionContext(context)) {
+			const suffixPrompt = renderTranscriptSuggestionPrompt(context);
+			const userMessage: UserMessage = {
+				role: "user",
+				content: [{ type: "text", text: suffixPrompt }],
+				timestamp: Date.now(),
+			};
+			return await this.completePrompt(
+				[...context.transcriptMessages, userMessage],
+				context.systemPrompt,
+				settings,
+				context.sessionId,
+			);
+		}
+		return await this.completePrompt(
+			[
+				{
+					role: "user",
+					content: [{ type: "text", text: renderSuggestionPrompt(context as SuggestionPromptContext) }],
+					timestamp: Date.now(),
+				},
+			],
+			undefined,
+			settings,
+		);
 	}
 
 	private async completePrompt(
-		prompt: string,
+		messagesOrPrompt: Message[] | string,
 		systemPrompt?: string,
 		settings?: ModelInvocationSettings,
+		sessionId?: string,
 	): Promise<{ text: string; usage?: SuggestionUsage }> {
 		const ctx = this.runtime.getContext();
 		if (!ctx?.model) {
@@ -471,23 +502,21 @@ export class PiModelClient implements ModelClient {
 
 		const model = this.resolveModelForCall(ctx.model, settings?.modelRef, ctx.modelRegistry.getAll());
 		const apiKey = await ctx.modelRegistry.getApiKey(model);
-		const userMessage: UserMessage = {
-			role: "user",
-			content: [{ type: "text", text: prompt }],
-			timestamp: Date.now(),
-		};
-
+		const messages = typeof messagesOrPrompt === "string"
+			? [{ role: "user", content: [{ type: "text", text: messagesOrPrompt }], timestamp: Date.now() } satisfies UserMessage]
+			: messagesOrPrompt;
 		const response = await completeSimple(
 			model,
 			{
 				systemPrompt:
 					systemPrompt ??
 					"You are the internal model used by pi-prompt-suggester. Follow the user prompt exactly and return only the requested format.",
-				messages: [userMessage],
+				messages,
 			},
 			{
 				apiKey,
 				reasoning: settings?.thinkingLevel,
+				sessionId,
 			},
 		);
 		const text = extractText(response.content);

@@ -1,15 +1,20 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { InferenceDefault, PromptSuggesterConfig, ThinkingLevel } from "../../config/types.js";
+import type { InferenceDefault, PromptSuggesterConfig, SuggestionStrategy, ThinkingLevel } from "../../config/types.js";
 import { readJsonIfExists, writeJson } from "../storage/json-file.js";
 
 export interface SuggesterVariant {
+	strategy?: SuggestionStrategy;
 	suggesterModel?: string;
 	suggesterThinking?: ThinkingLevel | InferenceDefault;
 	maxSuggestionChars?: number;
 	maxRecentUserPrompts?: number;
 	maxRecentUserPromptChars?: number;
 	maxChangedExamples?: number;
+	transcriptMaxContextPercent?: number;
+	transcriptMaxMessages?: number;
+	transcriptMaxChars?: number;
+	transcriptRolloutPercent?: number;
 }
 
 interface VariantFile {
@@ -53,16 +58,35 @@ function isPositiveInteger(value: unknown): value is number {
 	return typeof value === "number" && Number.isInteger(value) && value > 0;
 }
 
+function isPercentageInteger(value: unknown): value is number {
+	return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 100;
+}
+
+function isPositivePercentageInteger(value: unknown): value is number {
+	return typeof value === "number" && Number.isInteger(value) && value > 0 && value <= 100;
+}
+
+function isStrategy(value: unknown): value is SuggestionStrategy {
+	return value === "compact" || value === "transcript-cache";
+}
+
 function normalizeVariant(value: unknown): SuggesterVariant {
 	if (!value || typeof value !== "object" || Array.isArray(value)) return {};
 	const raw = value as Record<string, unknown>;
 	const next: SuggesterVariant = {};
+	if (isStrategy(raw.strategy)) next.strategy = raw.strategy;
 	if (typeof raw.suggesterModel === "string" && raw.suggesterModel.trim()) next.suggesterModel = raw.suggesterModel.trim();
 	if (isThinkingValue(raw.suggesterThinking)) next.suggesterThinking = raw.suggesterThinking;
 	if (isPositiveInteger(raw.maxSuggestionChars)) next.maxSuggestionChars = raw.maxSuggestionChars;
 	if (isPositiveInteger(raw.maxRecentUserPrompts)) next.maxRecentUserPrompts = raw.maxRecentUserPrompts;
 	if (isPositiveInteger(raw.maxRecentUserPromptChars)) next.maxRecentUserPromptChars = raw.maxRecentUserPromptChars;
 	if (isPositiveInteger(raw.maxChangedExamples)) next.maxChangedExamples = raw.maxChangedExamples;
+	if (isPositivePercentageInteger(raw.transcriptMaxContextPercent)) {
+		next.transcriptMaxContextPercent = raw.transcriptMaxContextPercent;
+	}
+	if (isPositiveInteger(raw.transcriptMaxMessages)) next.transcriptMaxMessages = raw.transcriptMaxMessages;
+	if (isPositiveInteger(raw.transcriptMaxChars)) next.transcriptMaxChars = raw.transcriptMaxChars;
+	if (isPercentageInteger(raw.transcriptRolloutPercent)) next.transcriptRolloutPercent = raw.transcriptRolloutPercent;
 	return next;
 }
 
@@ -165,6 +189,7 @@ export class SuggesterVariantStore {
 		const config = cloneConfig(baseConfig);
 		const variant = this.state.variants[variantName];
 		if (!variant) return config;
+		if (variant.strategy !== undefined) config.suggestion.strategy = variant.strategy;
 		if (variant.suggesterModel !== undefined) config.inference.suggesterModel = variant.suggesterModel;
 		if (variant.suggesterThinking !== undefined) config.inference.suggesterThinking = variant.suggesterThinking;
 		if (variant.maxSuggestionChars !== undefined) config.suggestion.maxSuggestionChars = variant.maxSuggestionChars;
@@ -173,6 +198,14 @@ export class SuggesterVariantStore {
 			config.suggestion.maxRecentUserPromptChars = variant.maxRecentUserPromptChars;
 		}
 		if (variant.maxChangedExamples !== undefined) config.steering.maxChangedExamples = variant.maxChangedExamples;
+		if (variant.transcriptMaxContextPercent !== undefined) {
+			config.suggestion.transcriptMaxContextPercent = variant.transcriptMaxContextPercent;
+		}
+		if (variant.transcriptMaxMessages !== undefined) config.suggestion.transcriptMaxMessages = variant.transcriptMaxMessages;
+		if (variant.transcriptMaxChars !== undefined) config.suggestion.transcriptMaxChars = variant.transcriptMaxChars;
+		if (variant.transcriptRolloutPercent !== undefined) {
+			config.suggestion.transcriptRolloutPercent = variant.transcriptRolloutPercent;
+		}
 		return config;
 	}
 

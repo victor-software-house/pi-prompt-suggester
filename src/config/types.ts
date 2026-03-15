@@ -1,5 +1,6 @@
 export type ThinkingLevel = "minimal" | "low" | "medium" | "high" | "xhigh";
 export type InferenceDefault = "session-default";
+export type SuggestionStrategy = "compact" | "transcript-cache";
 
 export interface SeedConfig {
 	maxDiffChars: number;
@@ -26,6 +27,11 @@ export interface SuggestionConfig {
 	maxAbortContextChars: number;
 	maxSuggestionChars: number;
 	prefillOnlyWhenEditorEmpty: boolean;
+	strategy: SuggestionStrategy;
+	transcriptMaxContextPercent: number;
+	transcriptMaxMessages: number;
+	transcriptMaxChars: number;
+	transcriptRolloutPercent: number;
 }
 
 export interface SteeringConfig {

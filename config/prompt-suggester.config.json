@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "seed": {
     "maxDiffChars": 3000
   },
@@ -22,7 +22,12 @@
     "maxUnresolvedQuestions": 6,
     "maxAbortContextChars": 280,
     "maxSuggestionChars": 200,
-    "prefillOnlyWhenEditorEmpty": true
+    "prefillOnlyWhenEditorEmpty": true,
+    "strategy": "compact",
+    "transcriptMaxContextPercent": 70,
+    "transcriptMaxMessages": 120,
+    "transcriptMaxChars": 120000,
+    "transcriptRolloutPercent": 100
   },
   "steering": {
     "historyWindow": 20,

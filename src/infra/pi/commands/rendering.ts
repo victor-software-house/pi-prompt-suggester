@@ -70,6 +70,8 @@ export function renderStatus(
 		`- config schemaVersion: ${config.schemaVersion}`,
 		`- active variant: ${activeVariantName ?? "default"}`,
 		`- custom instruction: ${summarizeInstruction(config.suggestion.customInstruction)}`,
+		`- suggestion strategy: ${config.suggestion.strategy}`,
+		`- transcript guardrails: ctx<=${config.suggestion.transcriptMaxContextPercent}% msgs<=${config.suggestion.transcriptMaxMessages} chars<=${config.suggestion.transcriptMaxChars} rollout=${config.suggestion.transcriptRolloutPercent}%`,
 		`- models (config): seeder=${config.inference.seederModel}, suggester=${config.inference.suggesterModel}`,
 		`- thinking (config): seeder=${config.inference.seederThinking}, suggester=${config.inference.suggesterThinking}`,
 		`- ${compactUsageLine}`,

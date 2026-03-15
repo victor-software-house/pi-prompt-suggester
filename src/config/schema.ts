@@ -29,12 +29,24 @@ function isPositiveNumber(value: unknown): boolean {
 	return typeof value === "number" && Number.isFinite(value) && value > 0;
 }
 
+function isPercentageInteger(value: unknown): boolean {
+	return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 100;
+}
+
+function isPositivePercentageInteger(value: unknown): boolean {
+	return typeof value === "number" && Number.isInteger(value) && value > 0 && value <= 100;
+}
+
 function isThinkingLevel(value: unknown): boolean {
 	return ["minimal", "low", "medium", "high", "xhigh", "session-default"].includes(String(value));
 }
 
 function isModelSetting(value: unknown): boolean {
 	return typeof value === "string" && value.trim().length > 0;
+}
+
+function isSuggestionStrategy(value: unknown): boolean {
+	return ["compact", "transcript-cache"].includes(String(value));
 }
 
 function isSchemaVersion(value: unknown): boolean {
@@ -87,6 +99,11 @@ const suggestionValidators: ValidatorMap<SuggestionConfig> = {
 	maxAbortContextChars: isPositiveInteger,
 	maxSuggestionChars: isPositiveInteger,
 	prefillOnlyWhenEditorEmpty: isBoolean,
+	strategy: isSuggestionStrategy,
+	transcriptMaxContextPercent: isPositivePercentageInteger,
+	transcriptMaxMessages: isPositiveInteger,
+	transcriptMaxChars: isPositiveInteger,
+	transcriptRolloutPercent: isPercentageInteger,
 };
 const suggestionShape: SuggestionConfig = {
 	noSuggestionToken: "",
@@ -102,6 +119,11 @@ const suggestionShape: SuggestionConfig = {
 	maxAbortContextChars: 1,
 	maxSuggestionChars: 1,
 	prefillOnlyWhenEditorEmpty: true,
+	strategy: "compact",
+	transcriptMaxContextPercent: 1,
+	transcriptMaxMessages: 1,
+	transcriptMaxChars: 1,
+	transcriptRolloutPercent: 0,
 };
 
 const steeringValidators: ValidatorMap<SteeringConfig> = {

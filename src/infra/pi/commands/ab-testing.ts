@@ -11,12 +11,17 @@ import { getModelSelectionOptions, resolveModelRef, SESSION_DEFAULT, THINKING_LE
 
 function summarizeVariant(variant: SuggesterVariant): string {
 	const parts: string[] = [];
+	if (variant.strategy) parts.push(`strategy: ${variant.strategy}`);
 	if (variant.suggesterModel) parts.push(`model: ${variant.suggesterModel}`);
 	if (variant.suggesterThinking) parts.push(`thinking: ${variant.suggesterThinking}`);
 	if (variant.maxSuggestionChars) parts.push(`chars: ${variant.maxSuggestionChars}`);
 	if (variant.maxRecentUserPrompts) parts.push(`recent: ${variant.maxRecentUserPrompts}`);
 	if (variant.maxRecentUserPromptChars) parts.push(`prompt chars: ${variant.maxRecentUserPromptChars}`);
 	if (variant.maxChangedExamples) parts.push(`changed: ${variant.maxChangedExamples}`);
+	if (variant.transcriptMaxContextPercent) parts.push(`ctx≤${variant.transcriptMaxContextPercent}%`);
+	if (variant.transcriptMaxMessages) parts.push(`msgs≤${variant.transcriptMaxMessages}`);
+	if (variant.transcriptMaxChars) parts.push(`chars≤${variant.transcriptMaxChars}`);
+	if (variant.transcriptRolloutPercent !== undefined) parts.push(`rollout: ${variant.transcriptRolloutPercent}%`);
 	return parts.join(" · ") || "inherits base settings";
 }
 
@@ -64,6 +69,18 @@ async function promptVariantThinking(
 	return selected === "(inherit)" ? null : (selected as ThinkingLevel | InferenceDefault);
 }
 
+async function promptVariantStrategy(
+	ctx: ExtensionCommandContext,
+	currentValue: string | undefined,
+): Promise<"compact" | "transcript-cache" | undefined | null> {
+	const selected = await ctx.ui.select(
+		`Suggester strategy (current: ${currentValue ?? "inherit"})`,
+		["(inherit)", "compact", "transcript-cache"],
+	);
+	if (!selected) return undefined;
+	return selected === "(inherit)" ? null : (selected as "compact" | "transcript-cache");
+}
+
 async function editVariantUi(
 	ctx: ExtensionCommandContext,
 	composition: AppComposition,
@@ -74,12 +91,17 @@ async function editVariantUi(
 
 	while (true) {
 		const items = [
+			{ value: "strategy", label: "Suggestion strategy", description: variant.strategy ?? "inherit from base suggester settings" },
 			{ value: "suggesterModel", label: "Suggester model", description: variant.suggesterModel ?? "inherit from base suggester settings" },
 			{ value: "suggesterThinking", label: "Suggester thinking", description: variant.suggesterThinking ?? "inherit from base suggester settings" },
 			{ value: "maxSuggestionChars", label: "Max suggestion chars", description: variant.maxSuggestionChars ? String(variant.maxSuggestionChars) : "inherit from base suggester settings" },
 			{ value: "maxRecentUserPrompts", label: "Recent user prompts", description: variant.maxRecentUserPrompts ? String(variant.maxRecentUserPrompts) : "inherit from base suggester settings" },
 			{ value: "maxRecentUserPromptChars", label: "Recent user prompt chars", description: variant.maxRecentUserPromptChars ? String(variant.maxRecentUserPromptChars) : "inherit from base suggester settings" },
 			{ value: "maxChangedExamples", label: "Changed examples in prompt", description: variant.maxChangedExamples ? String(variant.maxChangedExamples) : "inherit from base suggester settings" },
+			{ value: "transcriptMaxContextPercent", label: "Transcript max context %", description: variant.transcriptMaxContextPercent ? String(variant.transcriptMaxContextPercent) : "inherit from base suggester settings" },
+			{ value: "transcriptMaxMessages", label: "Transcript max messages", description: variant.transcriptMaxMessages ? String(variant.transcriptMaxMessages) : "inherit from base suggester settings" },
+			{ value: "transcriptMaxChars", label: "Transcript max chars", description: variant.transcriptMaxChars ? String(variant.transcriptMaxChars) : "inherit from base suggester settings" },
+			{ value: "transcriptRolloutPercent", label: "Transcript rollout %", description: variant.transcriptRolloutPercent !== undefined ? String(variant.transcriptRolloutPercent) : "inherit from base suggester settings" },
 			{ value: "save", label: "Save", description: "Apply variant changes" },
 			{ value: "back", label: "Back", description: "Discard / leave editor" },
 		];
@@ -119,6 +141,12 @@ async function editVariantUi(
 			return;
 		}
 
+		if (action === "strategy") {
+			const next = await promptVariantStrategy(ctx, variant.strategy);
+			if (next === undefined) continue;
+			variant.strategy = next ?? undefined;
+			continue;
+		}
 		if (action === "suggesterModel") {
 			const next = await promptVariantModel(ctx, variant.suggesterModel);
 			if (next === undefined) continue;
@@ -157,6 +185,54 @@ async function editVariantUi(
 			const next = await promptPositiveIntOrClear(ctx, `Changed examples in prompt for ${variantName} (blank = inherit)`, variant.maxChangedExamples);
 			if (next === undefined) continue;
 			variant.maxChangedExamples = next ?? undefined;
+			continue;
+		}
+		if (action === "transcriptMaxContextPercent") {
+			const next = await promptPositiveIntOrClear(
+				ctx,
+				`Transcript max context percent for ${variantName} (1-100, blank = inherit)`,
+				variant.transcriptMaxContextPercent,
+			);
+			if (next === undefined) continue;
+			if (next !== null && next > 100) {
+				ctx.ui.notify("Value must be 1-100 or blank to inherit.", "error");
+				continue;
+			}
+			variant.transcriptMaxContextPercent = next ?? undefined;
+			continue;
+		}
+		if (action === "transcriptMaxMessages") {
+			const next = await promptPositiveIntOrClear(
+				ctx,
+				`Transcript max messages for ${variantName} (blank = inherit)`,
+				variant.transcriptMaxMessages,
+			);
+			if (next === undefined) continue;
+			variant.transcriptMaxMessages = next ?? undefined;
+			continue;
+		}
+		if (action === "transcriptMaxChars") {
+			const next = await promptPositiveIntOrClear(
+				ctx,
+				`Transcript max chars for ${variantName} (blank = inherit)`,
+				variant.transcriptMaxChars,
+			);
+			if (next === undefined) continue;
+			variant.transcriptMaxChars = next ?? undefined;
+			continue;
+		}
+		if (action === "transcriptRolloutPercent") {
+			const next = await promptPositiveIntOrClear(
+				ctx,
+				`Transcript rollout percent for ${variantName} (1-100 or blank = inherit)`,
+				variant.transcriptRolloutPercent,
+			);
+			if (next === undefined) continue;
+			if (next !== null && next > 100) {
+				ctx.ui.notify("Value must be 1-100 or blank to inherit.", "error");
+				continue;
+			}
+			variant.transcriptRolloutPercent = next ?? undefined;
 		}
 	}
 }
