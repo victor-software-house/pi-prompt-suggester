@@ -90,6 +90,8 @@ export default function suggester(pi: ExtensionAPI) {
 				return;
 			}
 
+			if (composition.orchestrators.reseedRunner.isRunning()) return;
+
 			const branchEntries = ctx.sessionManager
 				.getBranch()
 				.filter((entry): entry is ReturnType<typeof ctx.sessionManager.getBranch>[number] & { type: "message" } =>

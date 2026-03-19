@@ -532,7 +532,26 @@ export class PiModelClient implements ModelClient {
 			},
 		);
 		const text = extractText(response.content);
-		if (!text) throw new Error("Model returned empty text");
+		if (!text) {
+			this.logger?.debug("suggestion.model.empty_text", {
+				...debugMeta,
+				sessionId,
+				contentBlockTypes: Array.isArray(response.content)
+					? (response.content as Array<{ type?: string }>).map((block) => block?.type ?? "unknown")
+					: [],
+			});
+			return {
+				text: "",
+				usage: {
+					inputTokens: Number(response.usage?.input ?? 0),
+					outputTokens: Number(response.usage?.output ?? 0),
+					cacheReadTokens: Number(response.usage?.cacheRead ?? 0),
+					cacheWriteTokens: Number(response.usage?.cacheWrite ?? 0),
+					totalTokens: Number(response.usage?.totalTokens ?? 0),
+					costTotal: Number(response.usage?.cost?.total ?? 0),
+				},
+			};
+		}
 		return {
 			text,
 			usage: {

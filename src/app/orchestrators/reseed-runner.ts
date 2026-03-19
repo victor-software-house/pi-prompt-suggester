@@ -50,16 +50,45 @@ export class ReseedRunner {
 	private running = false;
 	private pendingTrigger: ReseedTrigger | null = null;
 	private consecutiveFailureCount = 0;
+	private lastFailureTimestamp = 0;
 	private readonly cwd: string;
 	private readonly configFingerprint: string;
+
+	private static readonly BACKOFF_BASE_MS = 30_000;
+	private static readonly BACKOFF_MAX_MS = 300_000;
 
 	public constructor(private readonly deps: ReseedRunnerDeps) {
 		this.cwd = deps.cwd ?? process.cwd();
 		this.configFingerprint = computeConfigFingerprint(deps.config);
 	}
 
+	private getBackoffMs(): number {
+		if (this.consecutiveFailureCount === 0) return 0;
+		const delay = Math.min(
+			ReseedRunner.BACKOFF_BASE_MS * Math.pow(2, this.consecutiveFailureCount - 1),
+			ReseedRunner.BACKOFF_MAX_MS,
+		);
+		return delay;
+	}
+
+	private isInBackoff(trigger: ReseedTrigger): boolean {
+		if (trigger.reason === "manual") return false;
+		if (this.consecutiveFailureCount === 0) return false;
+		const elapsed = Date.now() - this.lastFailureTimestamp;
+		return elapsed < this.getBackoffMs();
+	}
+
 	public async trigger(trigger: ReseedTrigger): Promise<void> {
 		if (!this.deps.config.reseed.enabled) return;
+		if (this.isInBackoff(trigger)) {
+			this.deps.logger.debug("reseed.backoff.skipped", {
+				reason: trigger.reason,
+				consecutiveFailures: this.consecutiveFailureCount,
+				backoffMs: this.getBackoffMs(),
+				elapsedMs: Date.now() - this.lastFailureTimestamp,
+			});
+			return;
+		}
 		if (this.running) {
 			this.pendingTrigger = this.mergeTriggers(this.pendingTrigger, trigger);
 			this.deps.logger.info("reseed.pending", { reason: trigger.reason, changedFiles: trigger.changedFiles });
@@ -111,6 +140,7 @@ export class ReseedRunner {
 				const seed = await this.finalizeSeed(seedResult.seed, current);
 				await this.deps.seedStore.save(seed);
 				this.consecutiveFailureCount = 0;
+				this.lastFailureTimestamp = 0;
 				this.deps.logger.info("reseed.completed", {
 					runId,
 					reason: current.reason,
@@ -125,6 +155,7 @@ export class ReseedRunner {
 					await this.recordSeederUsage(usage);
 				}
 				this.consecutiveFailureCount += 1;
+				this.lastFailureTimestamp = Date.now();
 				const meta = {
 					runId,
 					reason: current.reason,
@@ -132,6 +163,7 @@ export class ReseedRunner {
 					tokens: usage?.totalTokens,
 					cost: usage?.costTotal,
 					consecutiveFailures: this.consecutiveFailureCount,
+					backoffMs: this.getBackoffMs(),
 				};
 				if (this.consecutiveFailureCount >= 3) {
 					this.deps.logger.error("reseed.failed", meta);

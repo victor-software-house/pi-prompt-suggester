@@ -28,11 +28,20 @@ export interface ExtensionWiring {
 	onSeedTraceCommand: (args: string, ctx: ExtensionCommandContext) => Promise<void>;
 }
 
+async function safeguard<T>(label: string, fn: () => Promise<T>): Promise<T | undefined> {
+	try {
+		return await fn();
+	} catch (error) {
+		console.error(`[pi-prompt-suggester] ${label} failed:`, (error instanceof Error) ? error.message : error);
+		return undefined;
+	}
+}
+
 async function handleSessionEvent(
 	ctx: ExtensionContext,
 	handler: (ctx: ExtensionContext) => Promise<void>,
 ): Promise<void> {
-	await handler(ctx);
+	await safeguard("session-event", () => handler(ctx));
 }
 
 function extractRecentUserPrompts(branchMessages: unknown[]): string[] {
@@ -95,30 +104,34 @@ export class PiExtensionAdapter {
 		});
 
 		this.pi.on("agent_end", async (event: AgentEndEvent, ctx) => {
-			const branchEntries = ctx.sessionManager.getBranch();
-			const branchMessages = branchEntries
-				.filter((entry): entry is typeof branchEntries[number] & { type: "message" } => entry.type === "message")
-				.map((entry) => entry.message);
-			const sourceLeafId = ctx.sessionManager.getLeafId() ?? `turn-${Date.now()}`;
-			const turn = buildTurnContext({
-				turnId: sourceLeafId,
-				sourceLeafId,
-				messagesFromPrompt: event.messages,
-				branchMessages,
-				occurredAt: new Date().toISOString(),
-			});
-			if (turn) {
-				await this.wiring.onAgentEnd(turn, ctx);
-				return;
-			}
+			await safeguard("agent-end", async () => {
+				const branchEntries = ctx.sessionManager.getBranch();
+				const branchMessages = branchEntries
+					.filter((entry): entry is typeof branchEntries[number] & { type: "message" } => entry.type === "message")
+					.map((entry) => entry.message);
+				const sourceLeafId = ctx.sessionManager.getLeafId() ?? `turn-${Date.now()}`;
+				const turn = buildTurnContext({
+					turnId: sourceLeafId,
+					sourceLeafId,
+					messagesFromPrompt: event.messages,
+					branchMessages,
+					occurredAt: new Date().toISOString(),
+				});
+				if (turn) {
+					await this.wiring.onAgentEnd(turn, ctx);
+					return;
+				}
 
-			if (event.messages.length === 0) {
-				await this.wiring.onAgentEnd(buildAbortedFallbackTurn(sourceLeafId, branchMessages), ctx);
-			}
+				if (event.messages.length === 0) {
+					await this.wiring.onAgentEnd(buildAbortedFallbackTurn(sourceLeafId, branchMessages), ctx);
+				}
+			});
 		});
 
 		this.pi.on("input", async (event: InputEvent, ctx) => {
-			await this.wiring.onUserSubmit(event, ctx);
+			await safeguard("input", async () => {
+				await this.wiring.onUserSubmit(event, ctx);
+			});
 			return { action: "continue" };
 		});
 
