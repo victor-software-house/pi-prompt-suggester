@@ -15,24 +15,16 @@ It uses recent conversation context plus a lightweight project intent seed so su
 
 ## Install
 
-[npm package](https://www.npmjs.com/package/@guwidoe/pi-prompt-suggester)
-
 Global install:
 
 ```bash
-pi install npm:@guwidoe/pi-prompt-suggester
+pi install git:github.com/victor-software-house/pi-prompt-suggester
 ```
 
 Project-local install:
 
 ```bash
-pi install -l npm:@guwidoe/pi-prompt-suggester
-```
-
-Pin a version if needed:
-
-```bash
-pi install npm:@guwidoe/pi-prompt-suggester@0.1.30
+pi install -l git:github.com/victor-software-house/pi-prompt-suggester
 ```
 
 After install, restart `pi` or run `/reload`.
@@ -44,7 +36,7 @@ Add to `packages` in `~/.pi/agent/settings.json` or `.pi/settings.json`:
 ```json
 {
   "packages": [
-    "npm:@guwidoe/pi-prompt-suggester"
+    "git:github.com/victor-software-house/pi-prompt-suggester"
   ]
 }
 ```

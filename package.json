@@ -1,16 +1,16 @@
 {
-  "name": "@guwidoe/pi-prompt-suggester",
+  "name": "@victor-software-house/pi-prompt-suggester",
   "version": "0.3.1",
   "type": "module",
   "description": "Intent-aware next-prompt suggestion extension for pi",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/guwidoe/pi-prompt-suggester.git"
+    "url": "git+https://github.com/victor-software-house/pi-prompt-suggester.git"
   },
-  "homepage": "https://github.com/guwidoe/pi-prompt-suggester#readme",
+  "homepage": "https://github.com/victor-software-house/pi-prompt-suggester#readme",
   "bugs": {
-    "url": "https://github.com/guwidoe/pi-prompt-suggester/issues"
+    "url": "https://github.com/victor-software-house/pi-prompt-suggester/issues"
   },
   "main": "dist/index.js",
   "keywords": [
