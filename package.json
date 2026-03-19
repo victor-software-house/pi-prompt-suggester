@@ -24,6 +24,7 @@
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
+    "lint": "biome lint src test",
     "test": "npm run build && node --test",
     "prepublishOnly": "npm run build"
   },
@@ -33,6 +34,7 @@
     "@mariozechner/pi-coding-agent": "*"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.8",
     "@mariozechner/pi-agent-core": "*",
     "@mariozechner/pi-ai": "*",
     "@mariozechner/pi-coding-agent": "*",

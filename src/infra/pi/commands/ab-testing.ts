@@ -87,7 +87,7 @@ async function editVariantUi(
 	variantName: string,
 ): Promise<void> {
 	const store = composition.stores.variantStore;
-	let variant = { ...(store.getVariant(variantName) ?? {}) };
+	const variant = { ...(store.getVariant(variantName) ?? {}) };
 
 	while (true) {
 		const items = [

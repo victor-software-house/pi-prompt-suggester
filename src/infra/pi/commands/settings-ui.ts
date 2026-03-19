@@ -434,7 +434,6 @@ export async function handleSettingsUiCommand(
 				if (!selected) continue;
 				await persistence.writeValue(activeScope, action, selected);
 				ctx.ui.notify(`Updated ${action} in ${activeScope} override.`, "info");
-				continue;
 			}
 		} catch (error) {
 			ctx.ui.notify((error as Error).message, "error");

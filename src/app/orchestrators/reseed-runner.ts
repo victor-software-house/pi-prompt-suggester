@@ -65,7 +65,7 @@ export class ReseedRunner {
 	private getBackoffMs(): number {
 		if (this.consecutiveFailureCount === 0) return 0;
 		const delay = Math.min(
-			ReseedRunner.BACKOFF_BASE_MS * Math.pow(2, this.consecutiveFailureCount - 1),
+			ReseedRunner.BACKOFF_BASE_MS * 2 ** (this.consecutiveFailureCount - 1),
 			ReseedRunner.BACKOFF_MAX_MS,
 		);
 		return delay;
