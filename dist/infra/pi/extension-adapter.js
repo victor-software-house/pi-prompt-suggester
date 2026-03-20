@@ -103,7 +103,10 @@ export class PiExtensionAdapter {
             },
         });
         this.pi.registerCommand("suggester", {
-            description: "suggester controls: status | reseed | model | thinking | instruction | variant | ab | config | seed-trace [limit]",
+            description: "suggester controls: status | reseed | model | thinking | instruction | variant | ab | config | seed-trace | help",
+            getArgumentCompletions: (argumentPrefix) => {
+                return this.getSuggesterCompletions(argumentPrefix);
+            },
             handler: async (args, ctx) => {
                 const trimmed = args.trim();
                 const [subcommand, ...rest] = trimmed.length > 0 ? trimmed.split(/\s+/) : ["status"];
@@ -139,8 +142,137 @@ export class PiExtensionAdapter {
                     await this.wiring.onSeedTraceCommand(rest.join(" "), ctx);
                     return;
                 }
+                if (subcommand === "help") {
+                    this.pi.sendMessage({
+                        customType: "prompt-suggester-help",
+                        content: [
+                            "## /suggester commands",
+                            "",
+                            "- `/suggester` or `/suggester status` -- current state",
+                            "- `/suggester reseed` -- refresh project intent",
+                            "- `/suggester model [show|set|clear] <seeder|suggester> <ref>` -- model overrides",
+                            "- `/suggester thinking [show|set|clear] <seeder|suggester> <level>` -- thinking overrides",
+                            "- `/suggester instruction [show|set|clear] [project|user]` -- custom instruction",
+                            "- `/suggester config [show|set|reset] [project|user] <path> <value>` -- raw config",
+                            "- `/suggester variant` -- A/B variant editor",
+                            "- `/suggester ab` -- A/B comparison",
+                            "- `/suggester seed-trace [limit]` -- seeder event log",
+                            "- `/suggesterSettings` -- interactive settings menu",
+                        ].join("\n"),
+                        display: true,
+                    }, { triggerTurn: false });
+                    return;
+                }
                 await this.wiring.onStatusCommand(ctx);
             },
         });
+    }
+    getSuggesterCompletions(argumentPrefix) {
+        const trimmed = argumentPrefix.trimStart();
+        // First level: subcommands
+        if (!trimmed.includes(" ")) {
+            const subcommands = [
+                { value: "status", label: "status", description: "Show current state" },
+                { value: "reseed", label: "reseed", description: "Refresh project intent" },
+                { value: "model", label: "model", description: "Model overrides (show|set|clear)" },
+                { value: "thinking", label: "thinking", description: "Thinking level (show|set|clear)" },
+                { value: "instruction", label: "instruction", description: "Custom instruction (show|set|clear)" },
+                { value: "config", label: "config", description: "Raw config (show|set|reset)" },
+                { value: "variant", label: "variant", description: "A/B variant editor" },
+                { value: "ab", label: "ab", description: "A/B comparison" },
+                { value: "seed-trace", label: "seed-trace", description: "Seeder event log" },
+                { value: "help", label: "help", description: "Print usage" },
+            ];
+            const matches = subcommands.filter((item) => item.value.startsWith(trimmed));
+            return matches.length > 0 ? matches : null;
+        }
+        const spaceIndex = trimmed.indexOf(" ");
+        const subcommand = trimmed.slice(0, spaceIndex);
+        const rest = trimmed.slice(spaceIndex + 1).trimStart();
+        // Second level: subcommand-specific args
+        if (subcommand === "model" || subcommand === "thinking") {
+            if (!rest.includes(" ")) {
+                const actions = [
+                    { value: "show", label: "show", description: "Show current setting" },
+                    { value: "set", label: "set", description: "Set override" },
+                    { value: "clear", label: "clear", description: "Remove override" },
+                ];
+                const matches = actions.filter((item) => item.value.startsWith(rest));
+                return matches.length > 0 ? matches : null;
+            }
+            const actionSpaceIndex = rest.indexOf(" ");
+            const action = rest.slice(0, actionSpaceIndex);
+            const rolePrefix = rest.slice(actionSpaceIndex + 1).trimStart();
+            if ((action === "set" || action === "clear") && !rolePrefix.includes(" ")) {
+                const roles = [
+                    { value: "seeder", label: "seeder", description: "Seeder model/thinking" },
+                    { value: "suggester", label: "suggester", description: "Suggester model/thinking" },
+                ];
+                const matches = roles.filter((item) => item.value.startsWith(rolePrefix));
+                return matches.length > 0 ? matches : null;
+            }
+            // Third level for thinking: level values
+            if (subcommand === "thinking" && action === "set") {
+                const levelPrefix = rolePrefix.slice(rolePrefix.indexOf(" ") + 1).trimStart();
+                if (rolePrefix.includes(" ")) {
+                    const levels = [
+                        { value: "minimal", label: "minimal" },
+                        { value: "low", label: "low" },
+                        { value: "medium", label: "medium" },
+                        { value: "high", label: "high" },
+                        { value: "xhigh", label: "xhigh" },
+                        { value: "session-default", label: "session-default", description: "Use session thinking level" },
+                    ];
+                    const matches = levels.filter((item) => item.value.startsWith(levelPrefix));
+                    return matches.length > 0 ? matches : null;
+                }
+            }
+        }
+        if (subcommand === "instruction") {
+            if (!rest.includes(" ")) {
+                const actions = [
+                    { value: "show", label: "show", description: "Show current instruction" },
+                    { value: "set", label: "set", description: "Edit instruction" },
+                    { value: "clear", label: "clear", description: "Remove instruction" },
+                ];
+                const matches = actions.filter((item) => item.value.startsWith(rest));
+                return matches.length > 0 ? matches : null;
+            }
+            const actionSpaceIndex = rest.indexOf(" ");
+            const action = rest.slice(0, actionSpaceIndex);
+            const scopePrefix = rest.slice(actionSpaceIndex + 1).trimStart();
+            if ((action === "set" || action === "clear") && !scopePrefix.includes(" ")) {
+                const scopes = [
+                    { value: "project", label: "project", description: "Project-level override" },
+                    { value: "user", label: "user", description: "User-level override" },
+                ];
+                const matches = scopes.filter((item) => item.value.startsWith(scopePrefix));
+                return matches.length > 0 ? matches : null;
+            }
+        }
+        if (subcommand === "config") {
+            if (!rest.includes(" ")) {
+                const actions = [
+                    { value: "show", label: "show", description: "Show current config" },
+                    { value: "set", label: "set", description: "Set config value" },
+                    { value: "reset", label: "reset", description: "Reset to defaults" },
+                ];
+                const matches = actions.filter((item) => item.value.startsWith(rest));
+                return matches.length > 0 ? matches : null;
+            }
+            const actionSpaceIndex = rest.indexOf(" ");
+            const action = rest.slice(0, actionSpaceIndex);
+            const scopePrefix = rest.slice(actionSpaceIndex + 1).trimStart();
+            if ((action === "set" || action === "reset") && !scopePrefix.includes(" ")) {
+                const scopes = [
+                    { value: "project", label: "project", description: "Project-level override" },
+                    { value: "user", label: "user", description: "User-level override" },
+                    ...(action === "reset" ? [{ value: "all", label: "all", description: "Reset both scopes" }] : []),
+                ];
+                const matches = scopes.filter((item) => item.value.startsWith(scopePrefix));
+                return matches.length > 0 ? matches : null;
+            }
+        }
+        return null;
     }
 }

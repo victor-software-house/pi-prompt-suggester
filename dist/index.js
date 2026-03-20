@@ -7,6 +7,7 @@ import { refreshSuggesterUi } from "./infra/pi/ui-adapter.js";
 import { createUiContext } from "./infra/pi/ui-context.js";
 export default function suggester(pi) {
     let compositionPromise;
+    let cachedComposition;
     function installGhostEditor(ctx, composition) {
         if (!ctx.hasUI)
             return;
@@ -31,7 +32,9 @@ export default function suggester(pi) {
                 throw error;
             });
         }
-        return await compositionPromise;
+        const composition = await compositionPromise;
+        cachedComposition = composition;
+        return composition;
     }
     async function setRuntimeContext(ctx) {
         const composition = await getComposition();
@@ -43,7 +46,6 @@ export default function suggester(pi) {
             const composition = await setRuntimeContext(ctx);
             const generationId = composition.runtimeRef.bumpEpoch();
             if (ctx.hasUI) {
-                ctx.ui.setFooter(undefined);
                 installGhostEditor(ctx, composition);
                 deferGhostEditorReinstall(ctx, composition);
                 refreshSuggesterUi(createUiContext({
@@ -146,6 +148,13 @@ export default function suggester(pi) {
             const composition = await setRuntimeContext(ctx);
             await handleSeedTraceCommand(args, pi, composition);
             ctx.ui.notify("suggester seed trace sent to chat", "info");
+        },
+        getVariantNames: () => {
+            // Autocomplete is synchronous; composition may not be ready yet.
+            // cachedComposition is set after first successful getComposition().
+            if (!cachedComposition)
+                return [];
+            return cachedComposition.stores.variantStore.listVariants().map((v) => v.name);
         },
     });
     adapter.register();
