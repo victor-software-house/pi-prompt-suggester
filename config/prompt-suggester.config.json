@@ -23,7 +23,7 @@
     "maxAbortContextChars": 280,
     "maxSuggestionChars": 300,
     "prefillOnlyWhenEditorEmpty": true,
-    "strategy": "transcript-cache",
+    "strategy": "compact",
     "transcriptMaxContextPercent": 70,
     "transcriptMaxMessages": 120,
     "transcriptMaxChars": 120000,
