@@ -12,16 +12,17 @@ export default function suggester(pi) {
             return;
         ctx.ui.setEditorComponent((tui, theme, kb) => new GhostSuggestionEditor(tui, theme, kb, () => composition.runtimeRef.getSuggestion(), () => composition.runtimeRef.getSuggestionRevision(), () => composition.runtimeRef.getEditorHistoryState(), (state) => composition.runtimeRef.setEditorHistoryState(state)));
     }
-    function scheduleGhostEditorReassertion(ctx, composition) {
-        const delaysMs = [50, 250, 1000, 3000, 8000];
-        for (const delay of delaysMs) {
-            setTimeout(() => {
-                const active = composition.runtimeRef.getContext();
-                if (active !== ctx)
-                    return;
-                installGhostEditor(ctx, composition);
-            }, delay);
-        }
+    function deferGhostEditorReinstall(ctx, composition) {
+        // Pi's InteractiveMode may reset the custom editor AFTER the extension's
+        // session handler returns (session_switch/fork/tree clear UI in their own
+        // event handler which runs after the extension handler). A single deferred
+        // re-install is enough to survive this race.
+        setTimeout(() => {
+            const active = composition.runtimeRef.getContext();
+            if (active !== ctx)
+                return;
+            installGhostEditor(ctx, composition);
+        }, 100);
     }
     async function getComposition() {
         if (!compositionPromise) {
@@ -44,7 +45,7 @@ export default function suggester(pi) {
             if (ctx.hasUI) {
                 ctx.ui.setFooter(undefined);
                 installGhostEditor(ctx, composition);
-                scheduleGhostEditorReassertion(ctx, composition);
+                deferGhostEditorReinstall(ctx, composition);
                 refreshSuggesterUi(createUiContext({
                     runtimeRef: composition.runtimeRef,
                     config: composition.config,
@@ -77,9 +78,6 @@ export default function suggester(pi) {
             if (!turn)
                 return;
             const composition = await setRuntimeContext(ctx);
-            if (ctx.hasUI) {
-                installGhostEditor(ctx, composition);
-            }
             composition.runtimeRef.setLastTurnContext(turn);
             const generationId = composition.runtimeRef.bumpEpoch();
             // Fire-and-forget: do not block Pi's main thread while waiting for
