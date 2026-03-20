@@ -102,6 +102,7 @@ test("TurnEndOrchestrator records usage and persists transcript-cache suggestion
 		occurredAt: "2026-03-15T00:02:00.000Z",
 		recentUserPrompts: ["Run it"],
 		toolSignals: [],
+	toolOutcomes: [],
 		touchedFiles: [],
 		unresolvedQuestions: [],
 	});

@@ -89,5 +89,5 @@ test("TranscriptPromptContextBuilder throws when transcript is unavailable", () 
 		},
 	});
 
-	assert.throws(() => builder.build(null, { recentChanged: [] }), /No active session transcript available/);
+	assert.throws(() => builder.build(null, { recentChanged: [], recentEdited: [] }), /No active session transcript available/);
 });

@@ -48,6 +48,7 @@ const turn = {
 	occurredAt: "2026-03-15T00:00:00.000Z",
 	recentUserPrompts: ["Fix the tests"],
 	toolSignals: [],
+	toolOutcomes: [],
 	touchedFiles: [],
 	unresolvedQuestions: [],
 };
@@ -64,7 +65,7 @@ test("SuggestionEngine uses transcript-cache mode when eligible", async () => {
 		},
 		promptContextBuilder: {
 			build() {
-				return { latestAssistantTurn: "compact", turnStatus: "success", intentSeed: null, recentUserPrompts: [], toolSignals: [], touchedFiles: [], unresolvedQuestions: [], recentChanged: [], customInstruction: "", noSuggestionToken: "[no suggestion]", maxSuggestionChars: 200 };
+				return { latestAssistantTurn: "compact", turnStatus: "success", intentSeed: null, recentUserPrompts: [], toolSignals: [], toolOutcomes: [], touchedFiles: [], unresolvedQuestions: [], recentChanged: [], recentEdited: [], customInstruction: "", noSuggestionToken: "[no suggestion]", maxSuggestionChars: 200 };
 			},
 		},
 		transcriptPromptContextBuilder: {
@@ -85,7 +86,7 @@ test("SuggestionEngine uses transcript-cache mode when eligible", async () => {
 		},
 	});
 
-	const result = await engine.suggest(turn, null, { recentChanged: [] });
+	const result = await engine.suggest(turn, null, { recentChanged: [], recentEdited: [] });
 	assert.equal(result.kind, "suggestion");
 	assert.equal(result.metadata.strategy, "transcript-cache");
 	assert.equal(result.metadata.requestedStrategy, "transcript-cache");
@@ -104,7 +105,7 @@ test("SuggestionEngine falls back to compact mode when transcript guardrails rej
 		},
 		promptContextBuilder: {
 			build() {
-				return { latestAssistantTurn: "compact", turnStatus: "success", intentSeed: null, recentUserPrompts: [], toolSignals: [], touchedFiles: [], unresolvedQuestions: [], recentChanged: [], customInstruction: "", noSuggestionToken: "[no suggestion]", maxSuggestionChars: 200 };
+				return { latestAssistantTurn: "compact", turnStatus: "success", intentSeed: null, recentUserPrompts: [], toolSignals: [], toolOutcomes: [], touchedFiles: [], unresolvedQuestions: [], recentChanged: [], recentEdited: [], customInstruction: "", noSuggestionToken: "[no suggestion]", maxSuggestionChars: 200 };
 			},
 		},
 		transcriptPromptContextBuilder: {
@@ -125,7 +126,7 @@ test("SuggestionEngine falls back to compact mode when transcript guardrails rej
 		},
 	});
 
-	const result = await engine.suggest(turn, null, { recentChanged: [] });
+	const result = await engine.suggest(turn, null, { recentChanged: [], recentEdited: [] });
 	assert.equal(result.kind, "suggestion");
 	assert.equal(result.metadata.strategy, "compact");
 	assert.equal(result.metadata.fallbackReason, "transcript_context_limit");
@@ -144,7 +145,7 @@ test("SuggestionEngine falls back to compact mode when transcript rollout sample
 		},
 		promptContextBuilder: {
 			build() {
-				return { latestAssistantTurn: "compact", turnStatus: "success", intentSeed: null, recentUserPrompts: [], toolSignals: [], touchedFiles: [], unresolvedQuestions: [], recentChanged: [], customInstruction: "", noSuggestionToken: "[no suggestion]", maxSuggestionChars: 200 };
+				return { latestAssistantTurn: "compact", turnStatus: "success", intentSeed: null, recentUserPrompts: [], toolSignals: [], toolOutcomes: [], touchedFiles: [], unresolvedQuestions: [], recentChanged: [], recentEdited: [], customInstruction: "", noSuggestionToken: "[no suggestion]", maxSuggestionChars: 200 };
 			},
 		},
 		transcriptPromptContextBuilder: {
@@ -154,7 +155,7 @@ test("SuggestionEngine falls back to compact mode when transcript rollout sample
 		},
 	});
 
-	const result = await engine.suggest(turn, null, { recentChanged: [] });
+	const result = await engine.suggest(turn, null, { recentChanged: [], recentEdited: [] });
 	assert.equal(result.kind, "suggestion");
 	assert.equal(result.metadata.strategy, "compact");
 	assert.equal(result.metadata.sampledOut, true);

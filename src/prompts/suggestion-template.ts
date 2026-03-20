@@ -58,6 +58,9 @@ ${context.recentUserPrompts.length > 0 ? context.recentUserPrompts.map((prompt) 
 ToolSignals:
 ${context.toolSignals.length > 0 ? context.toolSignals.map((signal) => `- ${signal}`).join("\n") : "(none)"}
 
+ToolOutcomes:
+${context.toolOutcomes.length > 0 ? context.toolOutcomes.map((outcome) => `- ${outcome}`).join("\n") : "(none)"}
+
 TouchedFiles:
 ${context.touchedFiles.length > 0 ? context.touchedFiles.map((file) => `- ${file}`).join("\n") : "(none)"}
 
@@ -65,6 +68,16 @@ UnresolvedQuestions:
 ${context.unresolvedQuestions.length > 0 ? context.unresolvedQuestions.map((item) => `- ${item}`).join("\n") : "(none)"}
 
 ${renderChangedExamples(context.recentChanged)}
+
+RecentUserEdits:
+${context.recentEdited.length > 0
+	? context.recentEdited
+		.map(
+			(example) =>
+				`- suggestion: ${JSON.stringify(example.suggestedPrompt)}\n  user refined to: ${JSON.stringify(example.actualUserPrompt)}`,
+		)
+		.join("\n")
+	: "(none)"}
 ${context.customInstruction.trim()
 		? `
 
@@ -83,6 +96,7 @@ Guidance:
 - Use ProjectIntent to stay aligned with the Project's current goals and constraints.
 - If AbortContext is present, assume the user intentionally interrupted the previous execution.
 - Learn from RecentUserCorrections: avoid repeating directions the user moved away from.
+- Learn from RecentUserEdits: the direction was right but the phrasing needed refinement. Adopt the user's refined style.
 - If the latest assistant message proposed a next step and it fits, a short reply like "Yes.", "Go ahead.", or "Proceed." is often best.
 - Only add more text when it adds new information such as a constraint, correction, or emphasis.
 - Do not restate, summarize, or paraphrase the assistant's proposal unless repeating a small part is necessary to add that new information.

@@ -42,6 +42,7 @@ function buildAbortedFallbackTurn(sourceLeafId, branchMessages) {
         occurredAt: new Date().toISOString(),
         recentUserPrompts: extractRecentUserPrompts(branchMessages),
         toolSignals: [],
+        toolOutcomes: [],
         touchedFiles: [],
         unresolvedQuestions: [],
         abortContextNote: "The user explicitly aborted the previous agent turn. Suggest a clear next prompt that either resumes intentionally or redirects the work.",

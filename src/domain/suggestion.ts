@@ -31,6 +31,7 @@ export interface TurnContext {
 	occurredAt: string;
 	recentUserPrompts: string[];
 	toolSignals: string[];
+	toolOutcomes: string[];
 	touchedFiles: string[];
 	unresolvedQuestions: string[];
 	abortContextNote?: string;

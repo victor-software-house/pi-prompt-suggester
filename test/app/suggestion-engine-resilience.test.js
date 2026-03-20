@@ -47,6 +47,7 @@ const turn = {
 	occurredAt: "2026-03-15T00:00:00.000Z",
 	recentUserPrompts: ["Fix the tests"],
 	toolSignals: [],
+	toolOutcomes: [],
 	touchedFiles: [],
 	unresolvedQuestions: [],
 };
@@ -60,6 +61,7 @@ function createPromptContextBuilder() {
 				intentSeed: null,
 				recentUserPrompts: [],
 				toolSignals: [],
+	toolOutcomes: [],
 				touchedFiles: [],
 				unresolvedQuestions: [],
 				recentChanged: [],
@@ -82,7 +84,7 @@ test("SuggestionEngine returns no_suggestion when model returns empty text", asy
 		promptContextBuilder: createPromptContextBuilder(),
 	});
 
-	const result = await engine.suggest(turn, null, { recentChanged: [] });
+	const result = await engine.suggest(turn, null, { recentChanged: [], recentEdited: [] });
 	assert.equal(result.kind, "no_suggestion");
 	assert.ok(result.usage, "usage should still be reported for empty-text responses");
 	assert.equal(result.usage.inputTokens, 10);
@@ -99,7 +101,7 @@ test("SuggestionEngine returns no_suggestion when model returns whitespace-only 
 		promptContextBuilder: createPromptContextBuilder(),
 	});
 
-	const result = await engine.suggest(turn, null, { recentChanged: [] });
+	const result = await engine.suggest(turn, null, { recentChanged: [], recentEdited: [] });
 	assert.equal(result.kind, "no_suggestion");
 });
 
@@ -114,7 +116,7 @@ test("SuggestionEngine returns no_suggestion when model returns only the no-sugg
 		promptContextBuilder: createPromptContextBuilder(),
 	});
 
-	const result = await engine.suggest(turn, null, { recentChanged: [] });
+	const result = await engine.suggest(turn, null, { recentChanged: [], recentEdited: [] });
 	assert.equal(result.kind, "no_suggestion");
 	assert.equal(result.text, "[no suggestion]");
 });
@@ -149,7 +151,7 @@ test("SuggestionEngine propagates model error when no fallback strategy is avail
 	// transcript-cache path throws, falls back to compact which also throws
 	// The engine should propagate the error (error boundary is in the adapter/orchestrator layer)
 	await assert.rejects(
-		() => engine.suggest(turn, null, { recentChanged: [] }),
+		() => engine.suggest(turn, null, { recentChanged: [], recentEdited: [] }),
 		{ message: "provider timeout" },
 	);
 });
@@ -186,7 +188,7 @@ test("SuggestionEngine transcript-cache error falls back to compact", async () =
 		},
 	});
 
-	const result = await engine.suggest(turn, null, { recentChanged: [] });
+	const result = await engine.suggest(turn, null, { recentChanged: [], recentEdited: [] });
 	assert.equal(result.kind, "suggestion");
 	assert.equal(result.text, "fallback suggestion");
 	assert.equal(result.metadata.strategy, "compact");

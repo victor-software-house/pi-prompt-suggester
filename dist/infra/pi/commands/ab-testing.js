@@ -288,6 +288,7 @@ async function generateSuggestionForVariant(ctx, composition, variantName) {
     });
     const steering = {
         recentChanged: state.steeringHistory.filter((event) => event.classification === "changed_course").reverse(),
+        recentEdited: state.steeringHistory.filter((event) => event.classification === "accepted_edited").reverse(),
     };
     const result = await suggestionEngine.suggest(turn, seed, steering, {
         modelRef: effectiveConfig.inference.suggesterModel === "session-default"

@@ -88,6 +88,7 @@ export class TurnEndOrchestrator {
 		}
 		const steering = {
 			recentChanged: state.steeringHistory.filter((event) => event.classification === "changed_course").reverse(),
+			recentEdited: state.steeringHistory.filter((event) => event.classification === "accepted_edited").reverse(),
 		};
 		const effectiveConfig = this.deps.variantStore?.getEffectiveConfig(this.deps.config) ?? this.deps.config;
 		const startedAt = Date.now();

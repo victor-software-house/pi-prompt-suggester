@@ -22,9 +22,17 @@ function textFromContent(content: unknown): string {
 		.trim();
 }
 
-function extractToolSignals(messages: AgentMessage[]): { toolSignals: string[]; touchedFiles: string[] } {
+function truncateOneLine(value: string, maxChars: number): string {
+	const firstLine = value.split("\n")[0]?.trim() ?? "";
+	if (firstLine.length <= maxChars) return firstLine;
+	return `${firstLine.slice(0, maxChars)}...`;
+}
+
+function extractToolSignals(messages: AgentMessage[]): { toolSignals: string[]; touchedFiles: string[]; toolOutcomes: string[] } {
 	const toolSignals: string[] = [];
+	const toolOutcomes: string[] = [];
 	const touchedFiles = new Set<string>();
+	const pendingCalls = new Map<string, string>();
 
 	for (const message of messages) {
 		if (message.role === "assistant" && Array.isArray(message.content)) {
@@ -36,18 +44,27 @@ function extractToolSignals(messages: AgentMessage[]): { toolSignals: string[]; 
 					const patternValue = typeof args.pattern === "string" ? args.pattern : undefined;
 					const commandValue = typeof args.command === "string" ? args.command : undefined;
 					const target = pathValue ?? fileValue ?? patternValue ?? commandValue;
-					toolSignals.push(`${block.name}${target ? `(${target})` : ""}`);
+					const label = `${block.name}${target ? `(${target})` : ""}`;
+					toolSignals.push(label);
+					if (block.id) pendingCalls.set(block.id, label);
 					if (pathValue) touchedFiles.add(pathValue.replace(/^@/, ""));
 					if (fileValue) touchedFiles.add(fileValue.replace(/^@/, ""));
 				}
 			}
 		}
-		if (message.role === "toolResult" && message.isError) {
-			toolSignals.push(`${message.toolName}:error`);
+		if (message.role === "toolResult") {
+			const callLabel = (message.toolCallId ? pendingCalls.get(message.toolCallId) : undefined) ?? message.toolName;
+			const resultText = textFromContent(message.content);
+			if (message.isError) {
+				toolSignals.push(`${message.toolName}:error`);
+				toolOutcomes.push(`${callLabel} -> ERROR: ${truncateOneLine(resultText, 120)}`);
+			} else if (resultText) {
+				toolOutcomes.push(`${callLabel} -> ${truncateOneLine(resultText, 120)}`);
+			}
 		}
 	}
 
-	return { toolSignals, touchedFiles: Array.from(touchedFiles) };
+	return { toolSignals, touchedFiles: Array.from(touchedFiles), toolOutcomes };
 }
 
 function extractUnresolvedQuestions(text: string): string[] {
@@ -96,7 +113,7 @@ function buildPlaceholderTurnContext(params: {
 	if (!lastMessage) return null;
 
 	const recentUserPrompts = extractRecentUserPrompts(params.branchMessages);
-	const { toolSignals, touchedFiles } = extractToolSignals(params.messagesFromPrompt);
+	const { toolSignals, touchedFiles, toolOutcomes } = extractToolSignals(params.messagesFromPrompt);
 
 	if (lastMessage.role === "toolResult") {
 		const status: TurnStatus = lastMessage.isError ? "error" : "success";
@@ -110,6 +127,7 @@ function buildPlaceholderTurnContext(params: {
 			occurredAt: params.occurredAt,
 			recentUserPrompts,
 			toolSignals,
+			toolOutcomes,
 			touchedFiles,
 			unresolvedQuestions: [],
 			abortContextNote: undefined,
@@ -127,6 +145,7 @@ function buildPlaceholderTurnContext(params: {
 		occurredAt: params.occurredAt,
 		recentUserPrompts,
 		toolSignals,
+		toolOutcomes,
 		touchedFiles,
 		unresolvedQuestions: [],
 		abortContextNote: undefined,
@@ -153,7 +172,7 @@ export function buildTurnContext(params: {
 			? "aborted"
 			: "success";
 	const recentUserPrompts = extractRecentUserPrompts(params.branchMessages);
-	const { toolSignals, touchedFiles } = extractToolSignals(params.messagesFromPrompt);
+	const { toolSignals, touchedFiles, toolOutcomes } = extractToolSignals(params.messagesFromPrompt);
 	return {
 		turnId: params.turnId,
 		sourceLeafId: params.sourceLeafId,
@@ -163,6 +182,7 @@ export function buildTurnContext(params: {
 		occurredAt: params.occurredAt,
 		recentUserPrompts,
 		toolSignals,
+		toolOutcomes,
 		touchedFiles,
 		unresolvedQuestions: extractUnresolvedQuestions(assistantText),
 		abortContextNote:

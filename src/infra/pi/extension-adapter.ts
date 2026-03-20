@@ -83,6 +83,7 @@ function buildAbortedFallbackTurn(sourceLeafId: string, branchMessages: unknown[
 		occurredAt: new Date().toISOString(),
 		recentUserPrompts: extractRecentUserPrompts(branchMessages),
 		toolSignals: [],
+		toolOutcomes: [],
 		touchedFiles: [],
 		unresolvedQuestions: [],
 		abortContextNote:

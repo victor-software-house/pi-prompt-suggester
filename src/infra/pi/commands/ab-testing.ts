@@ -317,6 +317,7 @@ async function generateSuggestionForVariant(
 	});
 	const steering = {
 		recentChanged: state.steeringHistory.filter((event) => event.classification === "changed_course").reverse(),
+		recentEdited: state.steeringHistory.filter((event) => event.classification === "accepted_edited").reverse(),
 	};
 	const result = await suggestionEngine.suggest(
 		turn,

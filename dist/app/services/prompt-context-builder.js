@@ -20,12 +20,16 @@ export class PromptContextBuilder {
             toolSignals: turn.toolSignals
                 .slice(0, config.suggestion.maxToolSignals)
                 .map((signal) => truncate(signal, config.suggestion.maxToolSignalChars)),
+            toolOutcomes: turn.toolOutcomes
+                .slice(0, config.suggestion.maxToolSignals)
+                .map((outcome) => truncate(outcome, config.suggestion.maxToolSignalChars)),
             touchedFiles: turn.touchedFiles.slice(0, config.suggestion.maxTouchedFiles),
             unresolvedQuestions: turn.unresolvedQuestions.slice(0, config.suggestion.maxUnresolvedQuestions),
             abortContextNote: turn.abortContextNote
                 ? truncate(turn.abortContextNote, config.suggestion.maxAbortContextChars)
                 : undefined,
             recentChanged: steering.recentChanged.slice(0, config.steering.maxChangedExamples),
+            recentEdited: steering.recentEdited.slice(0, config.steering.maxChangedExamples),
             customInstruction: config.suggestion.customInstruction,
             noSuggestionToken: config.suggestion.noSuggestionToken,
             maxSuggestionChars: config.suggestion.maxSuggestionChars,

@@ -14,4 +14,5 @@ export interface SteeringEvent {
 
 export interface SteeringSlice {
 	recentChanged: SteeringEvent[];
+	recentEdited: SteeringEvent[];
 }
