@@ -521,6 +521,7 @@ export class PiModelClient implements ModelClient {
 				apiKey,
 				reasoning: settings?.thinkingLevel,
 				sessionId,
+				signal: settings?.signal,
 				onPayload: async (payload) => {
 					this.logger?.debug("suggestion.provider.payload", {
 						...debugMeta,

@@ -1,6 +1,7 @@
 export class RuntimeRef {
     currentContext;
     generationEpoch = 0;
+    abortController;
     currentSuggestion;
     suggestionRevision = 0;
     lastTurnContext;
@@ -15,11 +16,16 @@ export class RuntimeRef {
         return this.currentContext;
     }
     bumpEpoch() {
+        this.abortController?.abort();
+        this.abortController = new AbortController();
         this.generationEpoch += 1;
         return this.generationEpoch;
     }
     getEpoch() {
         return this.generationEpoch;
+    }
+    getAbortSignal() {
+        return this.abortController?.signal;
     }
     setSuggestion(text) {
         this.currentSuggestion = text?.trim() || undefined;

@@ -71,7 +71,7 @@ export default function suggester(pi) {
                 return;
             composition.runtimeRef.markBootstrappedLeafId(sourceLeafId);
             composition.runtimeRef.setLastTurnContext(historicalTurn);
-            void composition.orchestrators.agentEnd.handle(historicalTurn, generationId);
+            void composition.orchestrators.agentEnd.handle(historicalTurn, generationId, composition.runtimeRef.getAbortSignal());
         },
         onAgentEnd: async (turn, ctx) => {
             if (!turn)
@@ -84,7 +84,7 @@ export default function suggester(pi) {
             const generationId = composition.runtimeRef.bumpEpoch();
             // Fire-and-forget: do not block Pi's main thread while waiting for
             // the suggestion LLM call. The ghost editor will update when ready.
-            void composition.orchestrators.agentEnd.handle(turn, generationId);
+            void composition.orchestrators.agentEnd.handle(turn, generationId, composition.runtimeRef.getAbortSignal());
         },
         onUserSubmit: async (event, ctx) => {
             const composition = await setRuntimeContext(ctx);

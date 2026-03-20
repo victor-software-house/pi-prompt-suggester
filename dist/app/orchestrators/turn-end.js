@@ -5,7 +5,7 @@ export class TurnEndOrchestrator {
     constructor(deps) {
         this.deps = deps;
     }
-    async handle(turn, generationId) {
+    async handle(turn, generationId, signal) {
         this.deps.logger.info("suggestion.turn.received", {
             turnId: turn.turnId,
             status: turn.status,
@@ -68,6 +68,7 @@ export class TurnEndOrchestrator {
                 ? undefined
                 : effectiveConfig.inference.suggesterModel,
             thinkingLevel: toInvocationThinkingLevel(effectiveConfig.inference.suggesterThinking),
+            signal,
         }, effectiveConfig);
         const latencyMs = Date.now() - startedAt;
         const metadata = {

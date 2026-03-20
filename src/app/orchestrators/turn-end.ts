@@ -33,7 +33,7 @@ export interface TurnEndOrchestratorDeps {
 export class TurnEndOrchestrator {
 	public constructor(private readonly deps: TurnEndOrchestratorDeps) {}
 
-	public async handle(turn: TurnContext, generationId?: number): Promise<void> {
+	public async handle(turn: TurnContext, generationId?: number, signal?: AbortSignal): Promise<void> {
 		this.deps.logger.info("suggestion.turn.received", {
 			turnId: turn.turnId,
 			status: turn.status,
@@ -101,6 +101,7 @@ export class TurnEndOrchestrator {
 						? undefined
 						: effectiveConfig.inference.suggesterModel,
 				thinkingLevel: toInvocationThinkingLevel(effectiveConfig.inference.suggesterThinking),
+				signal,
 			},
 			effectiveConfig,
 		);
